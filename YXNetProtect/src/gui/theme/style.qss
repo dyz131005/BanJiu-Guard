@@ -1,0 +1,335 @@
+/* BanJiu-Guard - QSS 主题（深色现代风，圆角 + 平滑动画） */
+
+/* ===== 全局 ===== */
+* {
+    font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    outline: none;
+}
+
+#centralRoot {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #1a1d29, stop:1 #14161f);
+}
+
+/* ===== 导航栏 ===== */
+#navBar {
+    background: rgba(24, 27, 40, 0.92);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#logoLabel {
+    font-size: 20px;
+    font-weight: 700;
+    color: #5b8cff;
+    padding: 12px 0;
+}
+
+#navBtn {
+    background: transparent;
+    color: #9aa3b8;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 18px;
+    text-align: left;
+    font-size: 15px;
+    transition: all 0.2s ease;
+}
+#navBtn:hover {
+    background: rgba(91, 140, 255, 0.12);
+    color: #dfe4f0;
+}
+#navBtn:checked {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4a7dff, stop:1 #6a5bff);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* ===== 页面标题 ===== */
+#pageTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #eef1f8;
+}
+
+#hintText {
+    color: #7d8598;
+    font-size: 13px;
+}
+
+/* ===== 卡片 ===== */
+#heroCard {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #23283c, stop:1 #1c2030);
+    border: 1px solid rgba(91, 140, 255, 0.25);
+    border-radius: 16px;
+}
+
+#statusTitle {
+    font-size: 22px;
+    font-weight: 700;
+    color: #5b8cff;
+}
+
+#statusSub {
+    font-size: 13px;
+    color: #9aa3b8;
+}
+
+#statCard {
+    background: rgba(35, 40, 60, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+}
+#statCard:hover {
+    border-color: rgba(91, 140, 255, 0.4);
+}
+
+#statTitle {
+    font-size: 13px;
+    color: #7d8598;
+}
+#statValue {
+    font-size: 30px;
+    font-weight: 700;
+    color: #eef1f8;
+}
+
+/* ===== 设置分组 ===== */
+#settingsGroup {
+    background: rgba(35, 40, 60, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    margin-top: 6px;
+    padding: 8px;
+}
+#settingsGroup::title {
+    color: #dfe4f0;
+    font-weight: 600;
+    padding-left: 6px;
+}
+
+#settingCheck {
+    color: #dfe4f0;
+    spacing: 8px;
+}
+#settingCheck::indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #4a5268;
+    background: transparent;
+}
+#settingCheck::indicator:checked {
+    background: #4a7dff;
+    border-color: #4a7dff;
+}
+
+/* ===== 按钮 ===== */
+#primaryBtn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4a7dff, stop:1 #6a5bff);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 24px;
+    font-weight: 600;
+}
+#primaryBtn:hover { background: #5a8dff; }
+#primaryBtn:pressed { background: #3a6bef; }
+#primaryBtn:disabled { background: #3a4152; color: #7d8598; }
+
+#secondaryBtn {
+    background: rgba(74, 125, 255, 0.12);
+    color: #9db8ff;
+    border: 1px solid rgba(74, 125, 255, 0.35);
+    border-radius: 10px;
+    padding: 10px 20px;
+}
+#secondaryBtn:hover { background: rgba(74, 125, 255, 0.22); }
+
+#dangerBtn {
+    background: rgba(255, 82, 82, 0.14);
+    color: #ff8a8a;
+    border: 1px solid rgba(255, 82, 82, 0.4);
+    border-radius: 10px;
+    padding: 10px 20px;
+}
+#dangerBtn:hover { background: rgba(255, 82, 82, 0.25); }
+
+#segBtn {
+    background: rgba(35, 40, 60, 0.7);
+    color: #9aa3b8;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 10px 20px;
+}
+#segBtn:hover { color: #dfe4f0; }
+#segBtn:checked {
+    background: #4a7dff;
+    color: white;
+    border-color: #4a7dff;
+}
+
+/* ===== 进度条 ===== */
+#scanProgress {
+    height: 12px;
+    border: none;
+    border-radius: 6px;
+    background: #262b3d;
+    text-align: center;
+    color: white;
+}
+#scanProgress::chunk {
+    border-radius: 6px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4a7dff, stop:1 #6a5bff);
+}
+
+#scanStatus { color: #9aa3b8; }
+
+/* ===== 列表 ===== */
+#resultList {
+    background: rgba(30, 34, 50, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    color: #dfe4f0;
+    padding: 8px;
+}
+#resultList::item {
+    padding: 10px;
+    border-radius: 8px;
+}
+#resultList::item:selected {
+    background: rgba(74, 125, 255, 0.25);
+}
+
+/* ===== 右下角弹窗 ===== */
+#toastCard {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #23283c, stop:1 #1c2030);
+    border: 1px solid rgba(255, 82, 82, 0.4);
+    border-radius: 14px;
+}
+#toastTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ff8a8a;
+}
+#toastBody {
+    font-size: 13px;
+    color: #c3cad9;
+}
+#toastClose {
+    background: transparent;
+    color: #7d8598;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+}
+#toastClose:hover { background: rgba(255,255,255,0.1); color: white; }
+#toastAction {
+    background: rgba(255, 82, 82, 0.2);
+    color: #ffb3b3;
+    border: 1px solid rgba(255, 82, 82, 0.5);
+    border-radius: 8px;
+    padding: 7px 16px;
+}
+#toastAction:hover { background: rgba(255, 82, 82, 0.32); }
+
+/* 决策弹窗：放过按钮（次要） */
+#toastAllowBtn {
+    background: rgba(120, 130, 160, 0.18);
+    color: #c3cad9;
+    border: 1px solid rgba(120, 130, 160, 0.5);
+    border-radius: 8px;
+    padding: 7px 22px;
+    font-size: 13px;
+    font-weight: 600;
+}
+#toastAllowBtn:hover { background: rgba(120, 130, 160, 0.3); color: white; }
+
+/* 决策弹窗：拦截按钮（主要，红色） */
+#toastBlockBtn {
+    background: rgba(255, 82, 82, 0.85);
+    color: white;
+    border: 1px solid rgba(255, 82, 82, 1.0);
+    border-radius: 8px;
+    padding: 7px 22px;
+    font-size: 13px;
+    font-weight: 700;
+}
+#toastBlockBtn:hover { background: rgba(255, 82, 82, 1.0); }
+
+/* ===== 滚动条 ===== */
+QScrollBar:vertical {
+    width: 12px;
+    background: #1a1d29;
+    margin: 0;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical {
+    background: rgba(120, 130, 160, 0.55);
+    border-radius: 6px;
+    min-height: 30px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover {
+    background: rgba(140, 150, 180, 0.75);
+}
+QScrollBar::handle:vertical:pressed {
+    background: rgba(160, 170, 200, 0.9);
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+
+QScrollBar:horizontal {
+    height: 12px;
+    background: #1a1d29;
+    margin: 0;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal {
+    background: rgba(120, 130, 160, 0.55);
+    border-radius: 6px;
+    min-width: 30px;
+    margin: 2px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: rgba(140, 150, 180, 0.75);
+}
+QScrollBar::handle:horizontal:pressed {
+    background: rgba(160, 170, 200, 0.9);
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }
+
+/* ===== 消息框/滚动区域 ===== */
+QMessageBox { background: #1a1d29; }
+QMessageBox QLabel { color: #dfe4f0; }
+
+/* ===== 托盘右键菜单（紧凑） ===== */
+QMenu {
+    background: #1a1d29;
+    border: 1px solid rgba(120, 130, 160, 0.25);
+    border-radius: 8px;
+    padding: 4px;
+    margin: 0;
+}
+QMenu::item {
+    background: transparent;
+    color: #cdd4e6;
+    padding: 6px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+QMenu::item:selected {
+    background: rgba(99, 102, 241, 0.35);
+    color: #ffffff;
+}
+QMenu::separator {
+    height: 1px;
+    background: rgba(120, 130, 160, 0.2);
+    margin: 4px 8px;
+}

@@ -1,0 +1,8 @@
+.sympath srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+.reload
+!analyze -v
+.echo ==================== THREAD LIST ====================
+~
+.echo ==================== ALL STACKS ====================
+~* k 40
+q

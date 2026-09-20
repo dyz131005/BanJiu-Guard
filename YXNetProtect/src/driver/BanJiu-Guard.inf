@@ -1,0 +1,58 @@
+;
+; BanJiu-Guard 内核过滤驱动 INF
+; 安装：右键 -> 安装，或将 .sys 放置后使用 sc create 或 INetCfg 安装
+; 说明：测试签名模式需开启 (bcdedit /set testsigning on)
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Provider    = %ProviderName%
+DriverVer   = 01/15/2026,1.0.0.0
+CatalogFile = BanJiu-Guard.cat
+
+[DestinationDirs]
+DefaultDestDir = 12          ; %windir%\System32\drivers
+
+[SourceDisksNames]
+1 = %DiskName%
+
+[SourceDisksFiles]
+BanJiu-Guard.sys = 1
+
+[DefaultInstall]
+OptionDesc          = %ServiceDesc%
+CopyFiles           = DriverCopyFiles
+
+[DefaultInstall.Services]
+AddService = BanJiu-Guard,%SPSVCINST_ASSOCSERVICE%,BanJiu-Guard_Service_Inst
+
+[BanJiu-Guard_Service_Inst]
+DisplayName     = %ServiceDesc%
+ServiceType     = %SERVICE_FILE_SYSTEM_DRIVER%
+StartType       = %SERVICE_SYSTEM_START%
+ErrorControl    = %SERVICE_ERROR_NORMAL%
+ServiceBinary   = %12%\BanJiu-Guard.sys
+LoadOrderGroup  = "FSFilter Activity Monitor"
+AddReg          = BanJiu-Guard_Service_AddReg
+
+[BanJiu-Guard_Service_AddReg]
+HKR,,Instances,0x00010000,"BanJiu-Guard"
+HKR,,Instances\BanJiu-Guard,Altitude,,"369000"
+HKR,,Instances\BanJiu-Guard,Flags,0x00010001,0x0
+
+[DriverCopyFiles]
+BanJiu-Guard.sys
+
+[Strings]
+ProviderName = "BanJiu-Guard"
+DiskName     = "BanJiu-Guard Driver Disk"
+ServiceDesc  = "BanJiu-Guard Minifilter Driver"
+SPSVCINST_ASSOCSERVICE = 0x00000002
+SERVICE_FILE_SYSTEM_DRIVER = 0x00000002
+SERVICE_BOOT_START = 0x00000000
+SERVICE_SYSTEM_START = 0x00000001
+SERVICE_AUTO_START = 0x00000002
+SERVICE_DEMAND_START = 0x00000003
+SERVICE_ERROR_NORMAL = 0x00000001

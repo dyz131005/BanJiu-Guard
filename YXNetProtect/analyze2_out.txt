@@ -1,0 +1,216 @@
+Opened log file 'd:\Projects\BanJiu-Guard\YXNetProtect\analyze2_out.txt'
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+   EnableRedirectToChakraJsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.000 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.016 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 30
+
+Microsoft (R) Windows Debugger Version 10.0.28000.2526 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+
+Loading Dump File [C:\CrashDump\BanJiu-Guard.exe.17956.dmp]
+User Mini Dump File with Full Memory : Only application data is available
+
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Symbol search path is: srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Executable search path is: 
+Windows 10 Version 19045 MP (14 procs) Free x64
+Product: WinNt, suite: SingleUserTS
+Edition build lab: 19041.1.amd64fre.vb_release.191206-1406
+Debug session time: Fri Sep 18 20:14:11.000 2026 (UTC + 8:00)
+System Uptime: 1 days 9:32:58.039
+Process Uptime: 0 days 0:02:06.000
+.NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'
+...............................................................
+................................................................
+...................
+Loading unloaded module list
+...............
+This dump file has an exception of interest stored in it.
+The stored exception information can be accessed via .ecxr
+(4624.58b4): Security check failure or stack buffer overrun - code c0000409 (first/second chance not available)
+Subcode: 0x5 FAST_FAIL_INVALID_ARG 
+
++------------------------------------------------------------------------+
+| This target supports Hardware-enforced Stack Protection. A HW based    |
+| "Shadow Stack" may be available to assist in debugging and analysis.   |
+| See aka.ms/userhsp for more info.                                      |
+|                                                                        |
+| dps @ssp                                                               |
+|                                                                        |
++------------------------------------------------------------------------+
+
+For analysis of this file, run !analyze -v
+*** WARNING: Unable to verify checksum for BanJiu-Guard.exe
+BanJiu_Guard+0xdb2d04:
+00007ff7`a0662d04 cd29            int     29h
+0:034> .sympath srv*C:\symbols*https://msdl.microsoft.com/download/symbols;D:\Projects\BanJiu-Guard\YXNetProtect\build_dbg\src\gui
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DataContractReader.dll
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DataContractReader.Extension.dll
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DebuggerCommands.dll
+Symbol search path is: srv*C:\symbols*https://msdl.microsoft.com/download/symbols;D:\Projects\BanJiu-Guard\YXNetProtect\build_dbg\src\gui
+Expanded Symbol search path is: srv*c:\symbols*https://msdl.microsoft.com/download/symbols;d:\projects\banjiu-guard\yxnetprotect\build_dbg\src\gui
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+OK                                             D:\Projects\BanJiu-Guard\YXNetProtect\build_dbg\src\gui
+0:034> .reload /f /i BanJiu_Guard.exe
+
+"BanJiu_Guard.exe" was not found in the image list.
+Debugger will attempt to load "BanJiu_Guard.exe" at given base 00000000`00000000.
+
+Please provide the full image name, including the extension (i.e. kernel32.dll)
+for more reliable results.Base address and size overrides can be given as
+.reload <image.ext>=<base>,<size>.
+*** WARNING: Unable to verify timestamp for BanJiu_Guard.exe
+*** ERROR: Module load completed but symbols could not be loaded for BanJiu_Guard.exe
+Unable to add module at 00000000`00000000
+*** WARNING: Unable to verify checksum for BanJiu-Guard.exe
+0:034> .echo ============= CRASH THREAD #34 (QThread) =============
+============= CRASH THREAD #34 (QThread) =============
+0:034> ~34s
+BanJiu_Guard!system+0x10:
+00007ff7`a0662d04 cd29            int     29h
+0:034> k 60
+Child-SP          RetAddr               Call Site
+00000000`006ef1e0 00007ff7`a0662cca     BanJiu_Guard!system+0x10
+(Inline Function) --------`--------     BanJiu_Guard!common_fopen_s+0x38
+00000000`006ef210 00007ff7`a0662bca     BanJiu_Guard!_wfopen_s+0x42
+00000000`006ef250 00007ff7`a0662ce5     BanJiu_Guard!common_fsopen<wchar_t>+0x1a
+00000000`006ef2d0 00007ff7`a065f168     BanJiu_Guard!_wfsopen+0x5
+00000000`006ef310 00007ff7`a065c59e     BanJiu_Guard!__crt_stdio_output::output_processor<char,__crt_stdio_output::stream_output_adapter<char>,__crt_stdio_output::standard_base<char,__crt_stdio_output::stream_output_adapter<char> > >::state_case_type+0x58
+00000000`006ef340 00007ff7`a065c37a     BanJiu_Guard!__crt_strtox::parse_integer<unsigned long,__crt_strtox::c_string_character_source<wchar_t>,0>+0x3be
+00000000`006ef380 00007ff7`a065a036     BanJiu_Guard!__crt_strtox::parse_integer<unsigned long,__crt_strtox::c_string_character_source<wchar_t>,0>+0x19a
+00000000`006ef840 00007ff7`a065f46a     BanJiu_Guard!_fputwc_nolock_internal+0x11e
+00000000`006ef870 00007ff7`9f8cd4ec     BanJiu_Guard!__crt_stdio_output::output_processor<char,__crt_stdio_output::stream_output_adapter<char>,__crt_stdio_output::standard_base<char,__crt_stdio_output::stream_output_adapter<char> > >::state_case_type+0x35a
+(Inline Function) --------`--------     BanJiu_Guard!_vfprintf_l+0x1b
+00000000`006ef940 00007ff7`9f8c3cf2     BanJiu_Guard!fprintf+0x3c
+00000000`006ef990 00007ff7`9f8cb5c0     BanJiu_Guard!ThreatLog+0x142
+00000000`006efa30 00007ff7`a03c1c63     BanJiu_Guard!ThreatWorker::run+0x310
+00000000`006efd00 00007ff7`a044cccf     BanJiu_Guard!QObject::qt_static_metacall+0x213
+00000000`006efe20 00007ff7`a044dbb3     BanJiu_Guard!QThreadData::~QThreadData+0x8f
+00000000`006efe60 00007ff7`a0664b9b     BanJiu_Guard!QThread::qt_metacall+0x113
+00000000`006eff00 00007ffb`460d7344     BanJiu_Guard!_hypotf+0xb
+00000000`006eff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`006eff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+0:034> .echo ============= MAIN THREAD #0 =============
+============= MAIN THREAD #0 =============
+0:034> ~0s
+ntdll!RtlpLowFragHeapAllocFromContext+0x254:
+00007ffb`46fdb8a4 0f85b8720800    jne     ntdll!RtlpLowFragHeapAllocFromContext+0x87512 (00007ffb`47062b62) [br=0]
+0:000> k 70
+Child-SP          RetAddr               Call Site
+00000000`00149620 00007ffb`46fdb3c7     ntdll!RtlpLowFragHeapAllocFromContext+0x254
+00000000`001496e0 00007ff7`a067d004     ntdll!RtlpAllocateHeapInternal+0x9a7
+00000000`001497f0 00007ff7`a06514ee     BanJiu_Guard!_wctomb_internal+0x5c
+00000000`00149820 00007ff7`9fd3ca70     BanJiu_Guard!std::pmr::_Aligned_new_delete_resource_impl::`scalar deleting destructor'+0xe
+00000000`00149850 00007ff7`9fd3dd77     BanJiu_Guard!QAction::showStatusText+0x60
+00000000`001498c0 00007ff7`9fd5ba5c     BanJiu_Guard!QBrush::QBrush+0x397
+00000000`00149910 00007ff7`9ff06d31     BanJiu_Guard!QPen::doCompareEqualColor+0xcc
+00000000`00149940 00007ff7`9fd5ca2f     BanJiu_Guard!QRasterPaintEnginePrivate::blitImage+0x2e1
+00000000`00149970 00007ff7`9fd5b625     BanJiu_Guard!QPainterState::QPainterState+0x7f
+00000000`00149a70 00007ff7`9fa04eb4     BanJiu_Guard!QList<double>::append+0x145
+00000000`00149aa0 00007ff7`9f993efe     BanJiu_Guard!QTreeView::moveCursor+0x214
+00000000`00149be0 00007ff7`9f9f25c0     BanJiu_Guard!QHashPrivate::Data<QHashPrivate::Node<QD3D12SwapChain * __ptr64,QHashDummyValue> >::erase+0xee
+00000000`00149dc0 00007ff7`9fa70a05     BanJiu_Guard!QGridLayoutPrivate::setupLayoutData+0xd50
+00000000`00149df0 00007ff7`a03f439d     BanJiu_Guard!QAbstractItemView::updateEditorGeometries+0x5d5
+00000000`00149f80 00007ff7`9f9bf041     BanJiu_Guard!qt_call_post_routines+0xdd
+00000000`00149ff0 00007ff7`9f9be0e5     BanJiu_Guard!QApplication::notify+0x19b1
+00000000`0014a040 00007ff7`a03f2236     BanJiu_Guard!QApplication::notify+0xa55
+00000000`0014a280 00007ff7`9f992e4b     BanJiu_Guard!QCoreApplication::forwardEvent+0x6
+00000000`0014a2f0 00007ff7`9f99d020     BanJiu_Guard!QWidgetPrivate::drawWidget+0x47b
+00000000`0014a4c0 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014a5e0 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014a700 00007ff7`9f99d020     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014a8d0 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014a9f0 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014ab10 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014ac30 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014ad50 00007ff7`9f99cf53     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014ae70 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313
+00000000`0014af90 00007ff7`9f99d020     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014b160 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014b280 00007ff7`9f99d020     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014b450 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014b570 00007ff7`9f99d020     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014b740 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014b860 00007ff7`9f99d020     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014ba30 00007ff7`9f992924     BanJiu_Guard!QWidgetPrivate::paintBackground+0x50
+00000000`0014bb50 00007ff7`9fb0b1e6     BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104
+00000000`0014bd20 00007ff7`9fb0c877     BanJiu_Guard!QWidgetRepaintManager::paintAndFlush+0x526
+00000000`0014c010 00007ff7`9f99436a     BanJiu_Guard!QWidgetPrivate::scrollRect+0x187
+00000000`0014c0b0 00007ff7`9f9bf063     BanJiu_Guard!QWidget::event+0x12a
+00000000`0014c290 00007ff7`9f9be0e5     BanJiu_Guard!QApplication::notify+0x19d3
+00000000`0014c2e0 00007ff7`a03f2236     BanJiu_Guard!QApplication::notify+0xa55
+00000000`0014c520 00007ff7`a03f4058     BanJiu_Guard!QCoreApplication::forwardEvent+0x6
+00000000`0014c590 00007ff7`9fda1b1e     BanJiu_Guard!QCoreApplicationPrivate::processCommandLineArguments+0x178
+00000000`0014c670 00007ff7`a0514e5a     BanJiu_Guard!QInternalMimeData::renderDataHelper+0x38e
+00000000`0014c6a0 00007ff7`9fda1a88     BanJiu_Guard!QWindowsMessageWindowClassContext::QWindowsMessageWindowClassContext+0x1a
+00000000`0014f810 00007ff7`a04b81e7     BanJiu_Guard!QInternalMimeData::renderDataHelper+0x2f8
+00000000`0014f840 00007ff7`a03f0c99     BanJiu_Guard!QAbstractEventDispatcherV2::registeredTimers+0x397
+00000000`0014f8d0 00007ff7`9f8bc4cb     BanJiu_Guard!QCoreApplication::applicationFilePath+0x59
+00000000`0014f930 00007ff7`a068f885     BanJiu_Guard!main+0x8bb
+00000000`0014fe80 00007ff7`a0651d39     BanJiu_Guard!_clearfp+0x65
+00000000`0014fef0 00007ffb`460d7344     BanJiu_Guard!__std_fs_copy_file+0x339
+00000000`0014ff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`0014ff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+0:000> .echo ============= RESOLVE RECURSION OFFSETS =============
+============= RESOLVE RECURSION OFFSETS =============
+0:000> ln BanJiu_Guard+0xed020
+(00007ff7`9f99cfd0)   BanJiu_Guard!QWidgetPrivate::paintBackground+0x50   |  (00007ff7`9f99d3c0)   BanJiu_Guard!QWidget::paintEngine
+0:000> ln BanJiu_Guard+0xe2924
+(00007ff7`9f992820)   BanJiu_Guard!QWidgetEffectSourcePrivate::draw+0x104   |  (00007ff7`9f992950)   BanJiu_Guard!QPainter::drawTiledPixmap
+0:000> ln BanJiu_Guard+0xecf53
+(00007ff7`9f99cc40)   BanJiu_Guard!QWidgetPrivate::overlappedRegion+0x313   |  (00007ff7`9f99cf70)   BanJiu_Guard!QWidget::overrideWindowState
+0:000> ln BanJiu_Guard+0xe2e4b
+(00007ff7`9f9929d0)   BanJiu_Guard!QWidgetPrivate::drawWidget+0x47b   |  (00007ff7`9f993a60)   BanJiu_Guard!QWidgetEffectSourcePrivate::effectBoundingRectChanged
+0:000> ln BanJiu_Guard+0xdb2d04
+(00007ff7`a0662cf4)   BanJiu_Guard!system+0x10   |  (00007ff7`a0662e40)   BanJiu_Guard!malloc
+0:000> ln BanJiu_Guard+0x25b1e6
+(00007ff7`9fb0acc0)   BanJiu_Guard!QWidgetRepaintManager::paintAndFlush+0x526   |  (00007ff7`9fb0c000)   BanJiu_Guard!QPlatformTextureListWatcher::qt_metacall
+0:000> ln BanJiu_Guard+0x25c877
+(00007ff7`9fb0c6f0)   BanJiu_Guard!QWidgetPrivate::scrollRect+0x187   |  (00007ff7`9fb0cb10)   BanJiu_Guard!QWidgetRepaintManager::sendUpdateRequest
+0:000> q
+quit:
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'

@@ -1,0 +1,17 @@
+.sympath srv*C:\symbols*https://msdl.microsoft.com/download/symbols;D:\Projects\BanJiu-Guard\YXNetProtect\build_dbg\src\gui
+.reload /f /i BanJiu_Guard.exe
+.echo ============= CRASH THREAD #34 (QThread) =============
+~34s
+k 60
+.echo ============= MAIN THREAD #0 =============
+~0s
+k 70
+.echo ============= RESOLVE RECURSION OFFSETS =============
+ln BanJiu_Guard+0xed020
+ln BanJiu_Guard+0xe2924
+ln BanJiu_Guard+0xecf53
+ln BanJiu_Guard+0xe2e4b
+ln BanJiu_Guard+0xdb2d04
+ln BanJiu_Guard+0x25b1e6
+ln BanJiu_Guard+0x25c877
+q

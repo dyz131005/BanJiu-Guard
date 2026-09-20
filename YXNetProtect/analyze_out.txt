@@ -1,0 +1,252 @@
+Opened log file 'd:\Projects\BanJiu-Guard\YXNetProtect\analyze_out.txt'
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+   EnableRedirectToChakraJsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.000 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.016 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 30
+
+Microsoft (R) Windows Debugger Version 10.0.28000.2526 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+
+Loading Dump File [C:\CrashDump\BanJiu-Guard.exe.17956.dmp]
+User Mini Dump File with Full Memory : Only application data is available
+
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Symbol search path is: srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Executable search path is: 
+Windows 10 Version 19045 MP (14 procs) Free x64
+Product: WinNt, suite: SingleUserTS
+Edition build lab: 19041.1.amd64fre.vb_release.191206-1406
+Debug session time: Fri Sep 18 20:14:11.000 2026 (UTC + 8:00)
+System Uptime: 1 days 9:32:58.039
+Process Uptime: 0 days 0:02:06.000
+.NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script successfully loaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'
+...............................................................
+................................................................
+...................
+Loading unloaded module list
+...............
+This dump file has an exception of interest stored in it.
+The stored exception information can be accessed via .ecxr
+(4624.58b4): Security check failure or stack buffer overrun - code c0000409 (first/second chance not available)
+Subcode: 0x5 FAST_FAIL_INVALID_ARG 
+
++------------------------------------------------------------------------+
+| This target supports Hardware-enforced Stack Protection. A HW based    |
+| "Shadow Stack" may be available to assist in debugging and analysis.   |
+| See aka.ms/userhsp for more info.                                      |
+|                                                                        |
+| dps @ssp                                                               |
+|                                                                        |
++------------------------------------------------------------------------+
+
+For analysis of this file, run !analyze -v
+*** WARNING: Unable to verify checksum for BanJiu-Guard.exe
+BanJiu_Guard+0xdb2d04:
+00007ff7`a0662d04 cd29            int     29h
+0:034> .sympath srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DataContractReader.dll
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DataContractReader.Extension.dll
+Loading extension D:\program\Windows Kits\10\Debuggers\x64\winext\sos\extensions\Microsoft.Diagnostics.DebuggerCommands.dll
+Symbol search path is: srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+Expanded Symbol search path is: srv*c:\symbols*https://msdl.microsoft.com/download/symbols
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+0:034> .reload
+................................................................
+................................................................
+...................
+Loading unloaded module list
+...............
+*** WARNING: Unable to verify checksum for BanJiu-Guard.exe
+
+************* Symbol Loading Error Summary **************
+Module name            Error
+BanJiu-Guard           The system cannot find the file specified
+
+You can troubleshoot most symbol related issues by turning on symbol loading diagnostics (!sym noisy) and repeating the command that caused symbols to be loaded.
+You should also verify that your symbol search path (.sympath) is correct.
+0:034> !analyze -v
+ERROR: FindPlugIns 8007007b
+ERROR: Some plugins may not be available [8007007b]
+*******************************************************************************
+*                                                                             *
+*                        Exception Analysis                                   *
+*                                                                             *
+*******************************************************************************
+
+Debugger extension ext.analyze execution is cancelled.
+      PC: 00007ffb`447bcf19  VA: 00000000`00000000  R/W: 5  Parameter: 00000000`00000000
+0:000> .echo ==================== THREAD LIST ====================
+==================== THREAD LIST ====================
+0:000> ~
+.  0  Id: 4624.4628 Suspend: 1 Teb: 00000000`0039d000 Unfrozen
+   1  Id: 4624.58c4 Suspend: 1 Teb: 00000000`003a5000 Unfrozen
+   2  Id: 4624.4810 Suspend: 1 Teb: 00000000`003a7000 Unfrozen
+   3  Id: 4624.1210 Suspend: 1 Teb: 00000000`003ad000 Unfrozen
+   4  Id: 4624.1ee8 Suspend: 1 Teb: 00000000`003af000 Unfrozen
+   5  Id: 4624.31f0 Suspend: 1 Teb: 00000000`003b1000 Unfrozen
+   6  Id: 4624.5cdc Suspend: 1 Teb: 00000000`003b3000 Unfrozen
+   7  Id: 4624.16d4 Suspend: 1 Teb: 00000000`003b5000 Unfrozen
+   8  Id: 4624.3e54 Suspend: 1 Teb: 00000000`003b7000 Unfrozen
+   9  Id: 4624.45fc Suspend: 1 Teb: 00000000`003b9000 Unfrozen
+  10  Id: 4624.5e2c Suspend: 1 Teb: 00000000`003bb000 Unfrozen
+  11  Id: 4624.dac Suspend: 1 Teb: 00000000`003bd000 Unfrozen
+  12  Id: 4624.80c Suspend: 1 Teb: 00000000`003bf000 Unfrozen
+  13  Id: 4624.1dac Suspend: 1 Teb: 00000000`003c1000 Unfrozen
+  14  Id: 4624.192c Suspend: 1 Teb: 00000000`003c3000 Unfrozen
+  15  Id: 4624.584c Suspend: 1 Teb: 00000000`003c5000 Unfrozen
+  16  Id: 4624.3208 Suspend: 1 Teb: 00000000`003c7000 Unfrozen
+  17  Id: 4624.4590 Suspend: 1 Teb: 00000000`003c9000 Unfrozen
+  18  Id: 4624.5384 Suspend: 1 Teb: 00000000`003cb000 Unfrozen
+  19  Id: 4624.9c0 Suspend: 1 Teb: 00000000`003cd000 Unfrozen
+  20  Id: 4624.5890 Suspend: 1 Teb: 00000000`003cf000 Unfrozen "Thread (pooled)"
+  21  Id: 4624.170c Suspend: 1 Teb: 00000000`003d1000 Unfrozen "Thread (pooled)"
+  22  Id: 4624.4474 Suspend: 1 Teb: 00000000`003d3000 Unfrozen "Thread (pooled)"
+  23  Id: 4624.4f7c Suspend: 1 Teb: 00000000`003d5000 Unfrozen "Thread (pooled)"
+  24  Id: 4624.914 Suspend: 1 Teb: 00000000`003d7000 Unfrozen "Thread (pooled)"
+  25  Id: 4624.2cb8 Suspend: 1 Teb: 00000000`003d9000 Unfrozen "Thread (pooled)"
+  26  Id: 4624.52ec Suspend: 1 Teb: 00000000`003db000 Unfrozen "Thread (pooled)"
+  27  Id: 4624.5af4 Suspend: 1 Teb: 00000000`003e5000 Unfrozen
+  28  Id: 4624.8d4 Suspend: 1 Teb: 00000000`003e7000 Unfrozen
+  29  Id: 4624.2c60 Suspend: 1 Teb: 00000000`003e9000 Unfrozen
+  30  Id: 4624.50cc Suspend: 1 Teb: 00000000`003eb000 Unfrozen
+  31  Id: 4624.1878 Suspend: 1 Teb: 00000000`003ef000 Unfrozen
+  32  Id: 4624.2c5c Suspend: 1 Teb: 00000000`003fd000 Unfrozen
+  33  Id: 4624.3dbc Suspend: 1 Teb: 00000000`00200000 Unfrozen
+# 34  Id: 4624.58b4 Suspend: 0 Teb: 00000000`00222000 Unfrozen "QThread"
+0:000> .echo ==================== ALL STACKS ====================
+==================== ALL STACKS ====================
+0:000> ~* k 40
+
+.  0  Id: 4624.4628 Suspend: 1 Teb: 00000000`0039d000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000000`00149620 00007ffb`46fdb3c7     ntdll!RtlpLowFragHeapAllocFromContext+0x254
+00000000`001496e0 00007ff7`a067d004     ntdll!RtlpAllocateHeapInternal+0x9a7
+00000000`001497f0 00007ff7`a06514ee     BanJiu_Guard+0xdcd004
+00000000`00149820 00007ff7`9fd3ca70     BanJiu_Guard+0xda14ee
+00000000`00149850 00007ff7`9fd3dd77     BanJiu_Guard+0x48ca70
+00000000`001498c0 00007ff7`9fd5ba5c     BanJiu_Guard+0x48dd77
+00000000`00149910 00007ff7`9ff06d31     BanJiu_Guard+0x4aba5c
+00000000`00149940 00007ff7`9fd5ca2f     BanJiu_Guard+0x656d31
+00000000`00149970 00007ff7`9fd5b625     BanJiu_Guard+0x4aca2f
+00000000`00149a70 00007ff7`9fa04eb4     BanJiu_Guard+0x4ab625
+00000000`00149aa0 00007ff7`9f993efe     BanJiu_Guard+0x154eb4
+00000000`00149be0 00007ff7`9f9f25c0     BanJiu_Guard+0xe3efe
+00000000`00149dc0 00007ff7`9fa70a05     BanJiu_Guard+0x1425c0
+00000000`00149df0 00007ff7`a03f439d     BanJiu_Guard+0x1c0a05
+00000000`00149f80 00007ff7`9f9bf041     BanJiu_Guard+0xb4439d
+00000000`00149ff0 00007ff7`9f9be0e5     BanJiu_Guard+0x10f041
+00000000`0014a040 00007ff7`a03f2236     BanJiu_Guard+0x10e0e5
+00000000`0014a280 00007ff7`9f992e4b     BanJiu_Guard+0xb42236
+00000000`0014a2f0 00007ff7`9f99d020     BanJiu_Guard+0xe2e4b
+00000000`0014a4c0 00007ff7`9f99cf53     BanJiu_Guard+0xed020
+00000000`0014a5e0 00007ff7`9f992924     BanJiu_Guard+0xecf53
+00000000`0014a700 00007ff7`9f99d020     BanJiu_Guard+0xe2924
+00000000`0014a8d0 00007ff7`9f99cf53     BanJiu_Guard+0xed020
+00000000`0014a9f0 00007ff7`9f99cf53     BanJiu_Guard+0xecf53
+00000000`0014ab10 00007ff7`9f99cf53     BanJiu_Guard+0xecf53
+00000000`0014ac30 00007ff7`9f99cf53     BanJiu_Guard+0xecf53
+00000000`0014ad50 00007ff7`9f99cf53     BanJiu_Guard+0xecf53
+00000000`0014ae70 00007ff7`9f992924     BanJiu_Guard+0xecf53
+00000000`0014af90 00007ff7`9f99d020     BanJiu_Guard+0xe2924
+00000000`0014b160 00007ff7`9f992924     BanJiu_Guard+0xed020
+00000000`0014b280 00007ff7`9f99d020     BanJiu_Guard+0xe2924
+00000000`0014b450 00007ff7`9f992924     BanJiu_Guard+0xed020
+00000000`0014b570 00007ff7`9f99d020     BanJiu_Guard+0xe2924
+00000000`0014b740 00007ff7`9f992924     BanJiu_Guard+0xed020
+00000000`0014b860 00007ff7`9f99d020     BanJiu_Guard+0xe2924
+00000000`0014ba30 00007ff7`9f992924     BanJiu_Guard+0xed020
+00000000`0014bb50 00007ff7`9fb0b1e6     BanJiu_Guard+0xe2924
+00000000`0014bd20 00007ff7`9fb0c877     BanJiu_Guard+0x25b1e6
+00000000`0014c010 00007ff7`9f99436a     BanJiu_Guard+0x25c877
+00000000`0014c0b0 00007ff7`9f9bf063     BanJiu_Guard+0xe436a
+00000000`0014c290 00007ff7`9f9be0e5     BanJiu_Guard+0x10f063
+00000000`0014c2e0 00007ff7`a03f2236     BanJiu_Guard+0x10e0e5
+00000000`0014c520 00007ff7`a03f4058     BanJiu_Guard+0xb42236
+00000000`0014c590 00007ff7`9fda1b1e     BanJiu_Guard+0xb44058
+00000000`0014c670 00007ff7`a0514e5a     BanJiu_Guard+0x4f1b1e
+00000000`0014c6a0 00007ff7`9fda1a88     BanJiu_Guard+0xc64e5a
+00000000`0014f810 00007ff7`a04b81e7     BanJiu_Guard+0x4f1a88
+00000000`0014f840 00007ff7`a03f0c99     BanJiu_Guard+0xc081e7
+00000000`0014f8d0 00007ff7`9f8bc4cb     BanJiu_Guard+0xb40c99
+00000000`0014f930 00007ff7`a068f885     BanJiu_Guard+0xc4cb
+00000000`0014fe80 00007ff7`a0651d39     BanJiu_Guard+0xddf885
+00000000`0014fef0 00007ffb`460d7344     BanJiu_Guard+0xda1d39
+00000000`0014ff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`0014ff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+
+   1  Id: 4624.58c4 Suspend: 1 Teb: 00000000`003a5000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000000`0268fc28 00007ffb`47002e27     ntdll!NtWaitForWorkViaWorkerFactory+0x14
+00000000`0268fc30 00007ffb`460d7344     ntdll!TppWorkerThread+0x2f7
+00000000`0268ff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`0268ff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+
+   2  Id: 4624.4810 Suspend: 1 Teb: 00000000`003a7000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000000`0278fc28 00007ffb`47002e27     ntdll!NtWaitForWorkViaWorkerFactory+0x14
+00000000`0278fc30 00007ffb`460d7344     ntdll!TppWorkerThread+0x2f7
+00000000`0278ff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`0278ff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+
+   3  Id: 4624.1210 Suspend: 1 Teb: 00000000`003ad000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000000`02fdf8c8 00007ffb`447e1d20     ntdll!NtWaitForMultipleObjects+0x14
+00000000`02fdf8d0 00007ffb`46b83146     KERNELBASE!WaitForMultipleObjectsEx+0xf0
+00000000`02fdfbc0 00007ffb`46b82fc0     combase+0xa3146
+00000000`02fdfe50 00007ffb`46b82dd0     combase+0xa2fc0
+00000000`02fdfea0 00007ffb`46b82d59     combase+0xa2dd0
+00000000`02fdff00 00007ffb`460d7344     combase+0xa2d59
+00000000`02fdff30 00007ffb`470026b1     kernel32!BaseThreadInitThunk+0x14
+00000000`02fdff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+             ^ User interrupted operation error in '~* k 40'
+0:000> q
+quit:
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script unloaded from 'D:\program\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'
