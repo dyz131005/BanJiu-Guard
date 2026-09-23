@@ -23,6 +23,8 @@ set(GUI_SOURCES
     pages/logpage.h
     pages/settingspage.cpp
     pages/settingspage.h
+    pages/aboutpage.cpp
+    pages/aboutpage.h
     app.rc
 )
 
@@ -35,12 +37,25 @@ target_include_directories(BanJiuGuard PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# ---- LightGBM 静态机器学习库（/MT 预编译，无 OpenMP 动态依赖）----
+set(LIGHTGBM_LIB ${CMAKE_SOURCE_DIR}/third_party/LightGBM/lib_lightgbm.lib)
+
 target_link_libraries(BanJiuGuard PRIVATE
     Qt6::Widgets
     yx_service
     yx_common
     shell32
     dbghelp
+    ${LIGHTGBM_LIB}
+)
+
+# 部署 LightGBM 模型权重到 exe 同目录的 models\
+set(ML_MODEL ${CMAKE_SOURCE_DIR}/models/lgbm_detector.txt)
+add_custom_command(TARGET BanJiuGuard POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:BanJiuGuard>/models"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ML_MODEL} "$<TARGET_FILE_DIR:BanJiuGuard>/models/lgbm_detector.txt"
+    COMMENT "Deploying LightGBM model to models/lgbm_detector.txt"
 )
 
 # 静态 Qt 必须显式导入静态插件，并用 WHOLE_ARCHIVE 强制链接所有符号

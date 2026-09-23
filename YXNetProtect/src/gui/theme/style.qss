@@ -53,6 +53,35 @@
     color: #eef1f8;
 }
 
+/* ===== 返回按钮（页面左上角） ===== */
+#backBtn {
+    background: rgba(35, 40, 60, 0.7);
+    color: #9aa3b8;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+}
+#backBtn:hover {
+    background: rgba(91, 140, 255, 0.15);
+    color: #dfe4f0;
+    border-color: rgba(91, 140, 255, 0.4);
+}
+#backBtn:pressed {
+    background: rgba(91, 140, 255, 0.25);
+}
+
+/* ===== 关于页面 ===== */
+#aboutName {
+    font-size: 22px;
+    font-weight: 700;
+    color: #eef1f8;
+}
+#aboutText {
+    font-size: 14px;
+    color: #9aa3b8;
+}
+
 #hintText {
     color: #7d8598;
     font-size: 13px;

@@ -33,6 +33,8 @@ extern LARGE_INTEGER      g_Cookie;
 extern WCHAR              g_QuarantineDir[260];
 extern WCHAR              g_DriverSysPath[260];
 extern WCHAR              g_ServiceExePath[260];
+extern WCHAR              g_ConfigPath[260];
+extern WCHAR              g_ModelDir[260];
 extern volatile PVOID     g_IoctlActiveThread;  // 当前处理 IOCTL 的线程对象指针
 
 // ---------------------------------------------------------------------------
@@ -122,6 +124,23 @@ BOOLEAN YxIsProtectedPath(PCWSTR path)
         WCHAR normSvc[260];
         YxNormalizePath(g_ServiceExePath, normSvc, 260);
         if (wcscmp(normPath, normSvc) == 0) return TRUE;
+    }
+
+    // 检查是否是 config.ini 配置文件
+    if (g_ConfigPath[0]) {
+        WCHAR normCfg[260];
+        YxNormalizePath(g_ConfigPath, normCfg, 260);
+        if (wcscmp(normPath, normCfg) == 0) return TRUE;
+    }
+
+    // 检查是否在模型目录下（models\，含其子路径）
+    if (g_ModelDir[0]) {
+        WCHAR normModel[260];
+        YxNormalizePath(g_ModelDir, normModel, 260);
+        ULONG mLen = (ULONG)wcslen(normModel);
+        if (mLen > 0 && wcsncmp(normPath, normModel, mLen) == 0) {
+            if (normPath[mLen] == L'\\' || normPath[mLen] == L'\0') return TRUE;
+        }
     }
 
     return FALSE;
@@ -272,25 +291,39 @@ static BOOLEAN YxQueryDecision(
     if (name1) RtlStringCbCopyW(ev->Name1, sizeof(ev->Name1), name1);
     if (name2) RtlStringCbCopyW(ev->Name2, sizeof(ev->Name2), name2);
 
-    // 回复缓冲区
-    YX_DECISION decision = { 0 };
-    ULONG replySize = sizeof(YX_DECISION);
+    // 回复缓冲区：FILTER_REPLY_HEADER(16) + YX_DECISION(12) = 28 字节
+    // 用原始字节数组避免编译器对齐填充问题
+    // （#pragma pack(1) 在某些 WDK 版本中对嵌套结构体不生效）
+    UCHAR replyBuf[28] = { 0 };
+    PFILTER_REPLY_HEADER replyHdr = (PFILTER_REPLY_HEADER)replyBuf;
+    YX_DECISION* replyDecision = (YX_DECISION*)(replyBuf + sizeof(FILTER_REPLY_HEADER));
+    const ULONG EXPECTED_REPLY_SIZE = sizeof(FILTER_REPLY_HEADER) + sizeof(YX_DECISION);
+    ULONG replySize = EXPECTED_REPLY_SIZE;
 
     LARGE_INTEGER timeout;
     timeout.QuadPart = -((LONGLONG)timeoutMs * 10000 * 10LL);
 
     PFLT_PORT port = g_ClientPort;
     NTSTATUS st = FltSendMessage(g_Filter, &port, buf, total,
-                                 &decision, &replySize, &timeout);
+                                 replyBuf, &replySize, &timeout);
 
     ExFreePoolWithTag(buf, 'xPYX');
 
-    if (NT_SUCCESS(st) && replySize >= sizeof(YX_DECISION)) {
+    DbgPrint("[BanJiu-Guard][QueryDecision] type=%d st=0x%X replySize=%lu (need %lu) action=%d\n",
+             (int)type, st, replySize, EXPECTED_REPLY_SIZE, (int)replyDecision->Action);
+
+    if (NT_SUCCESS(st) && replySize >= EXPECTED_REPLY_SIZE) {
         g_Stats.FilesScanned++;
-        if (decision.Action == YX_ACTION_BLOCK) {
+        if (replyDecision->Action == YX_ACTION_BLOCK) {
             g_Stats.FilesBlocked++;
+            g_Stats.QDBlockCount++;
             return FALSE;
         }
+        g_Stats.QDAllowCount++;
+    } else if (!NT_SUCCESS(st)) {
+        g_Stats.QDTimeoutCount++;
+    } else {
+        g_Stats.QDBadReplyCount++;
     }
     return TRUE;
 }
@@ -358,6 +391,34 @@ static VOID YxGetFilename(PFLT_CALLBACK_DATA Data, WCHAR* out, ULONG outChars)
 }
 
 // ---------------------------------------------------------------------------
+// 判断路径是否命中 hosts 文件（与 yx_rules.cpp 的 hosts 规则保持一致）
+// hosts 文件：任何进程修改都拦截，不豁免系统进程。
+// 注意：这里做的是"本地硬拦截"，不依赖用户态 FilterReplyMessage 回复——
+// 服务端回复失败/超时被放行的漏洞不能再出现在 hosts 上。
+// ---------------------------------------------------------------------------
+static BOOLEAN YxIsHostsPath(PCWSTR path)
+{
+    if (!path || !path[0]) return FALSE;
+
+    // 复制到本地小写缓冲区（UNICODE 路径，逐字符转小写）
+    WCHAR lower[520];
+    size_t klen = wcslen(path);
+    if (klen >= 512) return FALSE;
+    for (size_t i = 0; i < klen; i++) lower[i] = (WCHAR)towlower(path[i]);
+    lower[klen] = L'\0';
+
+    // 1. 完整路径命中 \drivers\etc\hosts
+    if (wcsstr(lower, L"\\drivers\\etc\\hosts")) return TRUE;
+
+    // 2. 文件名命中 hosts（覆盖 hosts.tmp 改名 hosts、直接以 hosts 命名的文件）
+    const WCHAR* slash = wcsrchr(lower, L'\\');
+    PCWSTR name = slash ? slash + 1 : lower;
+    if (wcscmp(name, L"hosts") == 0) return TRUE;
+
+    return FALSE;
+}
+
+// ---------------------------------------------------------------------------
 // PreCreate：文件创建/打开拦截入口
 // ---------------------------------------------------------------------------
 FLT_PREOP_CALLBACK_STATUS YxPreCreate(
@@ -415,6 +476,23 @@ FLT_PREOP_CALLBACK_STATUS YxPreCreate(
 
     if (Data->Iopb->Parameters.Create.Options & FILE_DIRECTORY_FILE) {
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
+    // ---- hosts 文件本地硬拦截（不依赖用户态回复，防止通信超时被放行）----
+    // 只拦"带写权限"的打开/创建，避免误拦只读查看 hosts
+    // 与 yx_rules.cpp 的 hosts 规则一致：任何进程修改都拦截，不豁免系统进程
+    if (YxIsHostsPath(path)) {
+        ACCESS_MASK desired = Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
+        ACCESS_MASK writeAccess = FILE_WRITE_DATA | FILE_APPEND_DATA |
+                                  FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES |
+                                  DELETE | WRITE_DAC | WRITE_OWNER;
+        if (desired & writeAccess) {
+            YxReportEvent(YX_EVENT_FILE_WRITE, YX_RULE_HEURISTIC, YX_THREAT_CRITICAL,
+                          pid, 0, 0, path, L"检测到修改 hosts 文件（驱动本地硬拦截）", nullptr);
+            Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+            Data->IoStatus.Information = 0;
+            return FLT_PREOP_COMPLETE;
+        }
     }
 
     BOOLEAN allow = YxQueryDecision(YX_EVENT_FILE_CREATE, YX_RULE_HEURISTIC, YX_THREAT_LOW,
@@ -495,6 +573,16 @@ FLT_PREOP_CALLBACK_STATUS YxPreWrite(
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
     }
 
+    // ---- hosts 文件本地硬拦截（不依赖用户态回复，防止通信超时被放行）----
+    // 与 yx_rules.cpp 的 hosts 规则一致：任何进程修改都拦截，不豁免系统进程
+    if (YxIsHostsPath(path)) {
+        YxReportEvent(YX_EVENT_FILE_WRITE, YX_RULE_HEURISTIC, YX_THREAT_CRITICAL,
+                      pid, 0, 0, path, L"检测到修改 hosts 文件（驱动本地硬拦截）", nullptr);
+        Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+        Data->IoStatus.Information = 0;
+        return FLT_PREOP_COMPLETE;
+    }
+
     BOOLEAN allow = YxQueryDecision(YX_EVENT_FILE_WRITE, YX_RULE_HEURISTIC, YX_THREAT_LOW,
                                     pid, 0, 0, path, nullptr, nullptr, 500);
 
@@ -541,6 +629,46 @@ FLT_PREOP_CALLBACK_STATUS YxPreSetInformation(
     WCHAR path[512];
     YxGetFilename(Data, path, 512);
 
+    // 重命名：提取目标完整路径（相对路径基于源文件目录拼接）。
+    // 不查目标路径会漏掉"写 hosts.tmp 再改名 hosts"这类另存为绕过。
+    WCHAR targetPath[512] = { 0 };
+    PCWSTR targetArg = nullptr;
+    if (infoClass == FileRenameInformation || infoClass == FileRenameInformationEx) {
+        auto* ri = (PFILE_RENAME_INFORMATION)
+            Data->Iopb->Parameters.SetFileInformation.InfoBuffer;
+        if (ri && ri->FileNameLength >= sizeof(WCHAR) &&
+            ri->FileNameLength <= 500 * sizeof(WCHAR)) {
+            ULONG chars = ri->FileNameLength / sizeof(WCHAR);
+            PCWSTR src = ri->FileName;
+            // 跳过 \??\ 前缀（对象管理器 DOS 路径）
+            if (chars >= 4 && src[0] == L'\\' && src[1] == L'?' &&
+                src[2] == L'?' && src[3] == L'\\') {
+                src += 4;
+                chars -= 4;
+            }
+            if (src[0] == L'\\') {
+                // 绝对对象路径（\Device\HarddiskVolumeN\...）
+                RtlStringCbCopyNW(targetPath, sizeof(targetPath), src, chars * sizeof(WCHAR));
+                targetArg = targetPath;
+            } else {
+                // 相对路径：相对源文件所在目录，拼接 源目录\目标名
+                ULONG srcLen = (ULONG)wcslen(path);
+                LONG cut = -1;
+                for (LONG i = (LONG)srcLen - 1; i >= 0; i--) {
+                    if (path[i] == L'\\') { cut = i; break; }
+                }
+                if (cut > 0) {
+                    WCHAR dirPart[512];
+                    RtlStringCbCopyNW(dirPart, sizeof(dirPart), path, (ULONG)cut * sizeof(WCHAR));
+                    RtlStringCbCopyW(targetPath, sizeof(targetPath), dirPart);
+                    RtlStringCbCatW(targetPath, sizeof(targetPath), L"\\");
+                    RtlStringCbCatNW(targetPath, sizeof(targetPath), src, chars * sizeof(WCHAR));
+                    targetArg = targetPath;
+                }
+            }
+        }
+    }
+
     // ---- 自我保护：禁止删除/重命名隔离区文件/驱动文件/服务程序 ----
     // 仅受保护 PID 可操作，其余全部拦截（含 System）
     if (g_ProtectFlags.SelfProtect && !YxIsPidProtected(pid)) {
@@ -561,8 +689,18 @@ FLT_PREOP_CALLBACK_STATUS YxPreSetInformation(
                                ? YX_EVENT_FILE_RENAME
                                : YX_EVENT_FILE_DELETE;
 
+    // ---- hosts 文件本地硬拦截（不依赖用户态回复，防止通信超时被放行）----
+    // 源或目标任一命中即拦，覆盖"删 hosts"和"hosts.tmp 改名 hosts"绕过
+    if (YxIsHostsPath(path) || (targetArg && YxIsHostsPath(targetArg))) {
+        YxReportEvent(evType, YX_RULE_HEURISTIC, YX_THREAT_CRITICAL,
+                      pid, 0, 0, path, L"检测到删除/重命名 hosts 文件（驱动本地硬拦截）", nullptr);
+        Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+        Data->IoStatus.Information = 0;
+        return FLT_PREOP_COMPLETE;
+    }
+
     BOOLEAN allow = YxQueryDecision(evType, YX_RULE_HEURISTIC, YX_THREAT_LOW,
-                                    pid, 0, 0, path, nullptr, nullptr, 500);
+                                    pid, 0, 0, path, targetArg, nullptr, 500);
 
     if (!allow) {
         Data->IoStatus.Status = STATUS_ACCESS_DENIED;
@@ -673,8 +811,28 @@ VOID YxLoadImageNotify(
     } else {
         // 用户态 DLL 加载（白加黑检测）
         if (g_ProtectFlags.YinHuProtect || g_ProtectFlags.ProcessProtect) {
-            YxReportEvent(YX_EVENT_IMAGE_LOAD, YX_RULE_HEURISTIC, YX_THREAT_LOW,
-                          pid, 0, 0, imgPath, nullptr, nullptr);
+            // 节流：每秒最多上报 YX_IMAGE_LOAD_MAX_PER_SEC 条。
+            // 海量 DLL 加载事件会拖垮用户态服务消息队列，导致同步文件决策
+            // （如 hosts 写入）超时被默认放行——必须先保证同步决策链路畅通。
+            const ULONG MAX_PER_SEC = 50;
+            static ULONG s_lastSec = 0;
+            static ULONG s_count = 0;
+            static ULONG s_dropped = 0;
+            ULONG nowSec = (ULONG)(KeQueryInterruptTime() / 10000000ULL);
+            if (nowSec != s_lastSec) {
+                s_lastSec = nowSec;
+                s_count = 0;
+            }
+            if (s_count < MAX_PER_SEC) {
+                s_count++;
+                YxReportEvent(YX_EVENT_IMAGE_LOAD, YX_RULE_HEURISTIC, YX_THREAT_LOW,
+                              pid, 0, 0, imgPath, nullptr, nullptr);
+            } else {
+                s_dropped++;
+                if (s_dropped % 1000 == 1) {
+                    DbgPrint("[BanJiu-Guard][LoadImage] throttled, dropped=%lu\n", s_dropped);
+                }
+            }
         }
     }
 }
@@ -682,14 +840,17 @@ VOID YxLoadImageNotify(
 // ---------------------------------------------------------------------------
 // 注册表回调：解析键名和值名
 // ---------------------------------------------------------------------------
-static VOID YxRegGetFullPath(PVOID argument2, WCHAR* outBuf, ULONG outChars)
+static VOID YxRegGetFullPath(REG_NOTIFY_CLASS cls, PVOID argument2, WCHAR* outBuf, ULONG outChars)
 {
-    if (!argument2 || !outBuf || !outChars) {
+    if (!outBuf || !outChars) {
         if (outBuf) outBuf[0] = L'\0';
         return;
     }
+    if (!argument2) {
+        outBuf[0] = L'\0';
+        return;
+    }
 
-    REG_NOTIFY_CLASS cls = *(REG_NOTIFY_CLASS*)argument2;
     WCHAR path[512] = { 0 };
 
     switch (cls) {
@@ -699,6 +860,7 @@ static VOID YxRegGetFullPath(PVOID argument2, WCHAR* outBuf, ULONG outChars)
             if (p && p->Object) {
                 PCUNICODE_STRING name = p->ValueName;
                 PCUNICODE_STRING objName = nullptr;
+                // WDK 10.0.28000.0 中 CmCallbackGetKeyObjectID 第一个参数为 PLARGE_INTEGER
                 if (NT_SUCCESS(CmCallbackGetKeyObjectID(&g_Cookie, p->Object, nullptr, &objName)) && objName && objName->Buffer) {
                     RtlStringCbCopyNW(path, sizeof(path), objName->Buffer, objName->Length);
                     if (name && name->Buffer) {
@@ -763,35 +925,124 @@ NTSTATUS YxRegistryCallback(
     _In_opt_ PVOID Argument2)
 {
     UNREFERENCED_PARAMETER(CallbackContext);
-    UNREFERENCED_PARAMETER(Argument1);
+
+    // 回调调用计数（用户态通过 IOCTL_YX_QUERY_STATS 读取，诊断回调是否在工作）
+    g_Stats.RegCallbackCount++;
+
+    REG_NOTIFY_CLASS cls = (REG_NOTIFY_CLASS)(ULONG_PTR)Argument1;
+    // 按回调类统计次数，用于定位 regedit 走了哪个回调类
+    if ((ULONG)cls < 32) {
+        g_Stats.RegClassCounts[(ULONG)cls]++;
+    }
 
     if (!g_ProtectFlags.RegistryProtect && !g_ProtectFlags.YinHuProtect) {
         return STATUS_SUCCESS;
     }
 
+    // Argument1 是 REG_NOTIFY_CLASS 值本身（不是指针），Argument2 是操作信息结构指针
     if (!Argument2) return STATUS_SUCCESS;
 
-    REG_NOTIFY_CLASS cls = *(REG_NOTIFY_CLASS*)Argument2;
+    // 只在 Pre 阶段做同步拦截决策；Post 阶段操作已完成，无需也无法阻止
+    BOOLEAN isPreSetValue = (cls == RegNtPreSetValueKey);
+    BOOLEAN isPreCreateKey = (cls == RegNtPreCreateKeyEx);
+    BOOLEAN isPreDeleteKey = (cls == RegNtPreDeleteKey);
+    BOOLEAN isPreDeleteValue = (cls == RegNtPreDeleteValueKey);
 
-    YX_EVENT_TYPE evType = YX_EVENT_REGISTRY_WRITE;
-    if (cls == RegNtPreCreateKeyEx || cls == RegNtPostCreateKeyEx) {
-        evType = YX_EVENT_REGISTRY_CREATE;
-    } else if (cls != RegNtPreSetValueKey && cls != RegNtPostSetValueKey &&
-               cls != RegNtPreDeleteKey && cls != RegNtPostDeleteKey &&
-               cls != RegNtPreDeleteValueKey && cls != RegNtPostDeleteValueKey) {
+    if (!isPreSetValue && !isPreCreateKey && !isPreDeleteKey && !isPreDeleteValue) {
         return STATUS_SUCCESS;
     }
 
     WCHAR keyPath[512];
-    YxRegGetFullPath(Argument2, keyPath, 512);
-
-    if (keyPath[0] == L'\0') return STATUS_SUCCESS;
+    YxRegGetFullPath(cls, Argument2, keyPath, 512);
 
     ULONG pid = (ULONG)(ULONG_PTR)PsGetCurrentProcessId();
-    YxReportEvent(evType, YX_RULE_HEURISTIC, YX_THREAT_LOW,
-                  pid, 0, 0, keyPath, nullptr, nullptr);
 
-    return STATUS_SUCCESS;
+    // 诊断：路径提取失败时上报（用于定位 regedit/reg.exe 为何路径为空）
+    if (keyPath[0] == L'\0') {
+        g_Stats.RegPathFailCount++;
+        WCHAR clsStr[16] = L"cls=";
+        int c = (int)cls;
+        WCHAR num[8];
+        int nlen = 0;
+        if (c == 0) { num[nlen++] = L'0'; }
+        else { while (c > 0) { num[nlen++] = L'0' + (c % 10); c /= 10; } }
+        int pos = 4;
+        for (int i = nlen - 1; i >= 0; i--) clsStr[pos++] = num[i];
+        clsStr[pos] = L'\0';
+        // 只对 regedit/reg.exe 进程上报路径提取失败，避免日志洪水
+        // 用 PID + 类作为指纹做简单节流：每秒最多 1 条
+        YxReportEvent(YX_EVENT_REG_DIAG, YX_RULE_HEURISTIC, YX_THREAT_LOW,
+                      pid, 0, 0,
+                      L"<path-empty>", clsStr, nullptr);
+        return STATUS_SUCCESS;
+    }
+
+    // 诊断：对四个处理的回调类，若路径包含 run（不区分大小写）则上报到用户态日志，
+    // 用于定位 regedit 写 Run 键为何未触发拦截
+    {
+        WCHAR lower2[512];
+        size_t klen2 = wcslen(keyPath);
+        if (klen2 < 512) {
+            for (size_t i = 0; i < klen2; i++) lower2[i] = (WCHAR)towlower(keyPath[i]);
+            lower2[klen2] = L'\0';
+            if (wcsstr(lower2, L"run")) {
+                WCHAR clsStr[16] = L"cls=";
+                int c = (int)cls;
+                WCHAR num[8];
+                int nlen = 0;
+                if (c == 0) { num[nlen++] = L'0'; }
+                else { while (c > 0) { num[nlen++] = L'0' + (c % 10); c /= 10; } }
+                int pos = 4;
+                for (int i = nlen - 1; i >= 0; i--) clsStr[pos++] = num[i];
+                clsStr[pos] = L'\0';
+                YxReportEvent(YX_EVENT_REG_DIAG, YX_RULE_HEURISTIC, YX_THREAT_LOW,
+                              pid, 0, 0,
+                              keyPath, clsStr, nullptr);
+            }
+        }
+    }
+
+    // 本地路径预过滤：与 yx_rules.cpp 的规则关键字保持一致
+    // 不命中规则关键字直接放行，避免每个系统正常注册表事件都走同步决策导致系统卡死
+    WCHAR lower[512];
+    size_t klen = wcslen(keyPath);
+    if (klen >= 512) return STATUS_SUCCESS;
+    for (size_t i = 0; i < klen; i++) lower[i] = (WCHAR)towlower(keyPath[i]);
+    lower[klen] = L'\0';
+
+    BOOLEAN hitPath = FALSE;
+    if (wcsstr(lower, L"\\run") || wcsstr(lower, L"runonce") ||
+        wcsstr(lower, L"runservices") || wcsstr(lower, L"\\policies\\explorer\\run") ||
+        wcsstr(lower, L"\\windows\\currentversion\\run") ||
+        wcsstr(lower, L"\\winlogon") || wcsstr(lower, L"image file execution options") ||
+        wcsstr(lower, L"appinit_dlls") || wcsstr(lower, L"\\session manager\\appcertdlls") ||
+        wcsstr(lower, L"\\session manager\\subsystems") ||
+        wcsstr(lower, L"\\windows nt\\currentversion\\windows") ||
+        wcsstr(lower, L"\\system\\currentcontrolset\\services\\") ||
+        wcsstr(lower, L"\\windows defender") || wcsstr(lower, L"\\sharedaccess") ||
+        wcsstr(lower, L"security center") ||
+        wcsstr(lower, L"\\policies\\microsoft\\windows defender")) {
+        hitPath = TRUE;
+    }
+
+    if (!hitPath) {
+        g_Stats.RegPathMissCount++;
+        return STATUS_SUCCESS;  // 本地判断不命中规则，直接放行，不走同步决策
+    }
+
+    g_Stats.RegPathHitCount++;
+    DbgPrint("[BanJiu-Guard][RegCb] hit cls=%d path=%ws\n", (int)cls, keyPath);
+
+    YX_EVENT_TYPE evType = isPreCreateKey ? YX_EVENT_REGISTRY_CREATE
+                                          : YX_EVENT_REGISTRY_WRITE;
+
+    // 直接拦截：不依赖 FltSendMessage 回复机制（filter manager 回复大小不匹配）
+    // 驱动直接返回 STATUS_ACCESS_DENIED 阻止注册表写入
+    // 异步通知用户态记录日志
+    YxReportEvent(evType, YX_RULE_HEURISTIC, YX_THREAT_LOW,
+                  pid, 0, 0, keyPath, L"REG_BLOCKED", nullptr);
+
+    return STATUS_ACCESS_DENIED;
 }
 
 // ---------------------------------------------------------------------------
@@ -1243,6 +1494,8 @@ NTSTATUS YxDispatchDeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP 
                 RtlStringCbCopyW(g_QuarantineDir, sizeof(g_QuarantineDir), paths->QuarantineDir);
                 RtlStringCbCopyW(g_DriverSysPath, sizeof(g_DriverSysPath), paths->DriverSysPath);
                 RtlStringCbCopyW(g_ServiceExePath, sizeof(g_ServiceExePath), paths->ServiceExePath);
+                RtlStringCbCopyW(g_ConfigPath, sizeof(g_ConfigPath), paths->ConfigPath);
+                RtlStringCbCopyW(g_ModelDir, sizeof(g_ModelDir), paths->ModelDir);
                 status = STATUS_SUCCESS;
             } else {
                 status = STATUS_INVALID_PARAMETER;

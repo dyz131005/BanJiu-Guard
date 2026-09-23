@@ -5,6 +5,7 @@
 #include "pages/quarantinepage.h"
 #include "pages/logpage.h"
 #include "pages/settingspage.h"
+#include "pages/aboutpage.h"
 #include "toast.h"
 #include "../service/yx_service.h"
 
@@ -323,6 +324,7 @@ void MainWindow::buildNav()
     mk("隔离区", m_btnQuarantine);
     mk("安全日志", m_btnLog);
     mk("设置", m_btnSettings);
+    mk("关于", m_btnAbout);
 
     // 互斥按钮组：确保始终只有一个导航按钮高亮，再点当前按钮也不会取消高亮
     m_navGroup = new QButtonGroup(this);
@@ -332,6 +334,7 @@ void MainWindow::buildNav()
     m_navGroup->addButton(m_btnQuarantine, 2);
     m_navGroup->addButton(m_btnLog, 3);
     m_navGroup->addButton(m_btnSettings, 4);
+    m_navGroup->addButton(m_btnAbout, 5);
 
     m_btnDashboard->setChecked(true);
     lay->addStretch(1);
@@ -467,16 +470,24 @@ void MainWindow::setupService()
     m_scan = new ScanPage(m_service.get(), this);
     m_quarantine = new QuarantinePage(m_service.get(), this);
     m_settings = new SettingsPage(m_service.get(), this);
+    m_about = new AboutPage(this);
 
     m_stack->addWidget(m_dashboard);
     m_stack->addWidget(m_scan);
     m_stack->addWidget(m_quarantine);
     m_stack->addWidget(m_log);
     m_stack->addWidget(m_settings);
+    m_stack->addWidget(m_about);
 
     // 导航：点击按钮切换到对应页面
     connect(m_navGroup, &QButtonGroup::idClicked, m_stack, [this](int id) {
         m_stack->setCurrentIndex(id);
+    });
+
+    // 关于页面的"返回"按钮：回到主页（仪表盘）并同步高亮
+    connect(m_about, &AboutPage::backToHome, this, [this] {
+        m_stack->setCurrentIndex(0);
+        m_btnDashboard->setChecked(true);
     });
 }
 

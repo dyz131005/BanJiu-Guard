@@ -192,18 +192,18 @@ std::optional<RuleHit> RulesEngine::OnRegistryWrite(const Event& ev) {
         hit.level = ThreatLevel::High;
         hit.description = L"检测到对系统核心注册表项的修改（持久化/劫持风险）";
         hit.subject = ev.processPath.empty() ? ev.name0 : ev.processPath;
-        hit.object = ev.name0 + L" = " + ev.name1;
+        hit.object = ev.name0;  // 驱动已将"键路径\值名"合并到 name0
         hit.protectedObject = true;  // 注册表不是可删除文件，只处置修改者进程
         return hit;
     }
 
     if (isAutoStart) {
         RuleHit hit;
-        hit.category = RuleCategory::YinHuTaskPersist;
+        hit.category = RuleCategory::Heuristic;  // 注册表持久化，区别于 YinHuTaskPersist（计划任务）
         hit.level = ThreatLevel::High;
         hit.description = L"检测到注册表自启动项写入（持久化行为）";
-        hit.subject = ev.processPath;
-        hit.object = ev.name1;
+        hit.subject = ev.processPath;  // 创建启动项的程序路径
+        hit.object = ev.name0;         // 驱动已将"键路径\值名"合并到 name0
         hit.protectedObject = true;  // 注册表项，不做文件删除
         return hit;
     }
@@ -318,6 +318,12 @@ std::optional<RuleHit> RulesEngine::OnFileEvent(const Event& ev) {
     }
 
     // ---------- 系统文件保护 ----------
+    // 重命名事件：驱动把目标路径放在 name1（写入/删除时 name1 为空）
+    // 判定须同时覆盖源与目标——"hosts.tmp 改名为 hosts"这类另存为绕过靠目标名命中
+    std::wstring targetPath = ev.name1.empty() ? ev.name0 : ev.name1;
+    std::wstring targetLower = Lower(targetPath);
+    std::wstring targetName = BaseName(targetPath);
+
     // 关键系统目录：System32、SysWOW64、drivers\etc（hosts）、Boot 目录
     bool isSystemPath =
         Has(path, L"\\windows\\system32\\") ||
@@ -325,12 +331,20 @@ std::optional<RuleHit> RulesEngine::OnFileEvent(const Event& ev) {
         Has(path, L"\\windows\\system32\\drivers\\") ||
         Has(path, L"\\windows\\boot\\") ||
         Has(path, L"\\efi\\") ||
-        Has(path, L"\\boot\\");
+        Has(path, L"\\boot\\") ||
+        Has(targetLower, L"\\windows\\system32\\") ||
+        Has(targetLower, L"\\windows\\syswow64\\") ||
+        Has(targetLower, L"\\windows\\system32\\drivers\\") ||
+        Has(targetLower, L"\\windows\\boot\\") ||
+        Has(targetLower, L"\\efi\\") ||
+        Has(targetLower, L"\\boot\\");
 
-    // hosts 文件单独标记
+    // hosts 文件单独标记（源或目标任一命中即算：改名进/出都拦）
     bool isHostsFile =
         Has(path, L"\\drivers\\etc\\hosts") ||
-        Lower(name) == L"hosts";
+        Has(targetLower, L"\\drivers\\etc\\hosts") ||
+        Lower(name) == L"hosts" ||
+        Lower(targetName) == L"hosts";
 
     // 系统可执行文件被覆盖/删除（.exe/.dll/.sys 在系统目录下）
     bool isSystemBinary = isSystemPath && (
@@ -359,7 +373,10 @@ std::optional<RuleHit> RulesEngine::OnFileEvent(const Event& ev) {
         Lower(BaseName(proc)) == L"services.exe" ||
         Lower(BaseName(proc)) == L"lsass.exe");
 
-    if (isHostsFile && !isSystemProcess) {
+    // hosts 文件：任何进程修改都拦截，不豁免系统进程。
+    // 银狐木马等常利用系统进程权限/svchost 注入来改 hosts，
+    // 豁免系统进程等于给恶意程序开后门。
+    if (isHostsFile) {
         RuleHit hit;
         hit.category = RuleCategory::Heuristic;
         hit.level = ThreatLevel::Critical;

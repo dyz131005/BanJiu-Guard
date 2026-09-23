@@ -54,7 +54,8 @@ typedef enum _YX_EVENT_TYPE {
     YX_EVENT_DRIVER_LOAD     = 60,  // 驱动加载（BYOVD 检测）
     YX_EVENT_HANDLE_OPEN     = 70,  // 句柄打开（自我保护）
     YX_EVENT_MBR_PROTECT     = 80,  // MBR/GPT 扇区写入被拦截
-    YX_EVENT_SELF_PROTECT    = 81   // 自我保护触发（隔离区/驱动文件被访问）
+    YX_EVENT_SELF_PROTECT    = 81,  // 自我保护触发（隔离区/驱动文件被访问）
+    YX_EVENT_REG_DIAG        = 99   // 注册表诊断事件（仅日志，不走规则引擎）
 } YX_EVENT_TYPE;
 
 // 拦截动作
@@ -193,6 +194,22 @@ typedef struct _YX_STATS {
     uint64_t ProcessesBlocked;
     uint64_t ThreatsDetected;
     uint64_t YinHuDetected;
+    // 诊断：注册表回调注册状态 (CmRegisterCallbackEx 返回值) 和调用次数
+    int32_t  RegCallbackStatus;   // 0=未尝试, 正值=NTSTATUS成功码, 负值=错误码
+    uint32_t RegCallbackCount;    // 回调被调用的总次数
+    // 诊断：每个 REG_NOTIFY_CLASS 回调类被调用的次数（索引 = 回调类值）
+    uint32_t RegClassCounts[32];
+    // 诊断：路径提取失败的次数（4个处理的回调类中 keyPath 为空的情况）
+    uint32_t RegPathFailCount;
+    // 诊断：路径提取成功但不命中规则关键字的次数
+    uint32_t RegPathMissCount;
+    // 诊断：命中规则关键字并发送给用户态决策的次数
+    uint32_t RegPathHitCount;
+    // 诊断：YxQueryDecision 的结果统计
+    uint32_t QDAllowCount;     // 返回 allow=TRUE 的次数
+    uint32_t QDBlockCount;     // 返回 block=FALSE 的次数
+    uint32_t QDTimeoutCount;   // FltSendMessage 超时/失败的次数
+    uint32_t QDBadReplyCount;  // 回复大小不匹配或 action 不对的次数
 } YX_STATS, *PYX_STATS;
 
 // 受保护路径设置（隔离区目录 + 驱动文件路径）
@@ -202,6 +219,8 @@ typedef struct _YX_PROTECT_PATHS {
     wchar_t QuarantineDir[260];   // 隔离区目录（内核态路径，如 \??\C:\...\Quarantine）
     wchar_t DriverSysPath[260];   // 驱动 .sys 文件路径
     wchar_t ServiceExePath[260];  // 服务/主程序 .exe 路径
+    wchar_t ConfigPath[260];      // config.ini 配置文件路径
+    wchar_t ModelDir[260];        // 模型目录（models\）
 } YX_PROTECT_PATHS, *PYX_PROTECT_PATHS;
 #pragma pack(pop)
 

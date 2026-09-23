@@ -4,9 +4,9 @@ project(BanJiu-Guard LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ---- 静态 Qt 路径（用户需指向自己的静态 Qt）----
+# ---- 静态 Qt 路径（无 ICU，全静态；旧版 qt-static-msvc 含 ICU 依赖）----
 if(NOT DEFINED QT_STATIC_PREFIX)
-    set(QT_STATIC_PREFIX "D:/program/qt-static-msvc")
+    set(QT_STATIC_PREFIX "D:/program/qt-static-msvc-noicu")
 endif()
 set(CMAKE_PREFIX_PATH "${QT_STATIC_PREFIX}")
 

@@ -11,13 +11,38 @@
 #include <QCoreApplication>
 #include <QComboBox>
 #include <QScrollArea>
+#include <thread>
 
 SettingsPage::SettingsPage(yx::ProtectionService* svc, QWidget* parent)
     : QWidget(parent), m_svc(svc)
 {
     buildUi();
-    updateTestSigningState();
-    m_autoStart->setChecked(yx::FirstRunManager::IsAutoStartEnabled());
+
+    // 测试签名状态 / 开机自启状态：用后台线程异步加载
+    // 原因：两者分别调用 bcdedit 和 schtasks，CreateProcessW 会同步触发
+    // 内核 YxProcessNotify → YxQueryDecision(8000ms) → DriverMsg 线程验签 2 秒，
+    // 同步执行会把主线程阻塞 7~20 秒，导致 MainWindow 构造期间主界面无法显示。
+    // 占位文字先显示"加载中..."，加载完成后用 invokeMethod 回 UI 线程更新。
+    m_testSigningState->setText("测试签名模式：加载中...");
+    m_autoStart->setEnabled(false);
+    m_autoStart->setText("开机自启（加载中...）");
+
+    std::thread([this]() {
+        bool tsOn = yx::FirstRunManager::IsTestSigningEnabled();
+        bool asOn = yx::FirstRunManager::IsAutoStartEnabled();
+        // 捕获 this 安全：SettingsPage 在 MainWindow 生命周期内一直存在
+        QMetaObject::invokeMethod(this, [this, tsOn, asOn]() {
+            m_testSigningState->setText(tsOn
+                ? "测试签名模式：已开启 ✓"
+                : "测试签名模式：未开启（内核防护未激活）");
+            m_autoStart->setText("开机自启");
+            m_autoStart->setEnabled(true);
+            // blockSignals 防止 setChecked 触发 onAutoStartToggled 误创建任务
+            m_autoStart->blockSignals(true);
+            m_autoStart->setChecked(asOn);
+            m_autoStart->blockSignals(false);
+        }, Qt::QueuedConnection);
+    }).detach();
 
     // 初始化驱动启动类型选择
     if (m_svc) {

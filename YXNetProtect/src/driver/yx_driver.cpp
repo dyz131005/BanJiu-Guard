@@ -36,6 +36,8 @@ volatile PVOID   g_IoctlActiveThread = nullptr;
 WCHAR             g_QuarantineDir[260] = { 0 };
 WCHAR             g_DriverSysPath[260] = { 0 };
 WCHAR             g_ServiceExePath[260] = { 0 };
+WCHAR             g_ConfigPath[260] = { 0 };
+WCHAR             g_ModelDir[260] = { 0 };
 
 // Ob callback handle
 PVOID              g_ObHandle = nullptr;
@@ -193,8 +195,10 @@ extern "C" NTSTATUS DriverEntry(
 
     // ---- 5. Registry callback (persistence detection) ----
     UNICODE_STRING altitude = RTL_CONSTANT_STRING(L"369000");
-    CmRegisterCallbackEx(YxRegistryCallback, &altitude,
+    NTSTATUS regStatus = CmRegisterCallbackEx(YxRegistryCallback, &altitude,
                          DriverObject, nullptr, &g_Cookie, nullptr);
+    g_Stats.RegCallbackStatus = (int32_t)regStatus;
+    DbgPrint("[BanJiu-Guard] CmRegisterCallbackEx: 0x%X (cookie=%p)\n", regStatus, g_Cookie);
 
     // ---- 6. Communication port (user-mode service connects) ----
     PSECURITY_DESCRIPTOR sd = nullptr;

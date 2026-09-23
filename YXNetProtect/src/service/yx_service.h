@@ -20,6 +20,7 @@
 #include "../common/yx_protocol.h"
 #include "../common/yx_rules.h"
 #include "../common/yx_heuristic.h"
+#include "../common/yx_ml_engine.h"
 
 namespace yx {
 
@@ -189,6 +190,7 @@ private:
     yx::Stats m_stats;
     RulesEngine m_rules;
     HeuristicEngine m_heuristic;
+    MlEngine m_ml;  // LightGBM 机器学习检测引擎
     std::set<std::wstring> m_reportedTasks;
 
     // Toast 节流：防止驱动事件刷屏

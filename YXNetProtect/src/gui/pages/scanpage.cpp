@@ -3,6 +3,7 @@
 #include "../../service/yx_service.h"
 #include "../../common/yx_rules.h"
 #include "../../common/yx_heuristic.h"
+#include "../../common/yx_ml_engine.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -229,12 +230,26 @@ bool ScanWorker::isMalicious(const QString& path, QString& reason)
         }
     }
 
-    // 5. 启发式扫描（PE 结构分析）
+    // 5. 启发式 + ML 融合扫描（启发式 70% + 机器学习 30%）
     yx::HeuristicEngine heuristic;
     auto hr = heuristic.ScanFile(path.toStdWString());
-    if (hr.suspicious) {
-        reason = QString("启发式检测可疑文件（威胁分数 %1/100）：%2")
-                     .arg(hr.score)
+
+    static yx::MlEngine mlEngine;
+    static bool mlLoaded = mlEngine.Load();
+    (void)mlLoaded;
+    auto mlr = mlEngine.ScanFile(path.toStdWString());
+    auto fused = yx::FuseScores(hr.score, mlr);
+
+    if (fused.suspicious) {
+        QString scoreDetail;
+        if (fused.mlAvailable) {
+            scoreDetail = QString("（综合分数 %1/100，启发式 %2 + AI %3）")
+                              .arg(fused.score).arg(fused.heurScore).arg(fused.mlScore);
+        } else {
+            scoreDetail = QString("（威胁分数 %1/100）").arg(fused.score);
+        }
+        reason = QString("启发式检测可疑文件%1：%2")
+                     .arg(scoreDetail)
                      .arg(QString::fromStdString(hr.reason));
         return true;
     }

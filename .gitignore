@@ -1,6 +1,10 @@
 # Build output
 [Yy]XNetProtect/build/
 [Yy]XNetProtect/src/driver/build/
+[Yy]XNetProtect/dist/
+
+# LightGBM 第三方源码与编译产物（由 third_party/build_lightgbm.bat 本地构建）
+[Yy]XNetProtect/third_party/LightGBM/
 
 # CMake
 CMakeCache.txt
@@ -43,3 +47,7 @@ ppt-work/
 Thumbs.db
 desktop.ini
 .~lock.*
+
+# Debug
+*.dmp
+*.DMP

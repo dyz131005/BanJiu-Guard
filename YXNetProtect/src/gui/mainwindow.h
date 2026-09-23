@@ -15,6 +15,7 @@ class ScanPage;
 class QuarantinePage;
 class LogPage;
 class SettingsPage;
+class AboutPage;
 class NativeTrayIcon;
 
 namespace yx {
@@ -58,6 +59,7 @@ private:
     QPushButton* m_btnQuarantine = nullptr;
     QPushButton* m_btnLog = nullptr;
     QPushButton* m_btnSettings = nullptr;
+    QPushButton* m_btnAbout = nullptr;
     QButtonGroup* m_navGroup = nullptr;
 
     DashboardPage*   m_dashboard = nullptr;
@@ -65,6 +67,7 @@ private:
     QuarantinePage*  m_quarantine = nullptr;
     LogPage*         m_log = nullptr;
     SettingsPage*    m_settings = nullptr;
+    AboutPage*       m_about = nullptr;
 
     NativeTrayIcon* m_tray = nullptr;
     bool m_quitting = false;  // 退出标志，避免 closeEvent 拦截正常退出

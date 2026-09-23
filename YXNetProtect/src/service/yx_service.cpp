@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <vector>
 #include <set>
+#include <unordered_map>
 #include <sstream>
 #include <cstdio>
 #include <cwchar>
@@ -19,6 +20,8 @@
 #include <mscat.h>
 #include <chrono>
 #include <fstream>
+#include <atomic>
+#include <memory>
 
 // 崩溃日志写入函数（由 main.cpp 中的 GUI 模块定义，service 模块静态链接进同一 exe）
 // 作用：在线程崩溃或异常路径上同步把消息写到 BanJiu-Guard-crash.log
@@ -161,6 +164,8 @@ static bool EnableDebugPrivilege() {
 bool ProtectionService::Initialize() {
     EnableDebugPrivilege();
     SafeCrashLog(L"[Init] Start Initialize");
+    bool mlLoaded = m_ml.Load();
+    SafeCrashLog(std::wstring(L"[Init] ML model loaded=") + (mlLoaded ? L"true" : L"false"));
     EnsureQuarantineDir();
     SafeCrashLog(L"[Init] QuarantineDir=" + m_quarantineDir);
     // 加载持久化设置（在连接驱动前，确保开关状态正确）
@@ -177,9 +182,28 @@ bool ProtectionService::Initialize() {
         bool fp = ConnectFilterPort();
         SafeCrashLog(L"[Init] ConnectFilterPort ok=" + std::to_wstring(fp));
         SendProtectFlags();
-        SendProtectPaths();
+        // 先注册本进程 PID，再设置受保护路径。
+        // 否则 SendProtectPaths 把 BanJiu-Guard.exe 设为受保护路径后，
+        // 服务进程自身访问 exe 会被自我保护拦截（PID 尚未注册），
+        // 导致 fs::exists 等调用阻塞、日志洪流淹没 UI 线程。
         EnableSelfProtection();
-        SafeCrashLog(L"[Init] SendProtectFlags/Paths/SelfProtect sent");
+        SendProtectPaths();
+
+        // 诊断：查询驱动注册表回调注册状态和调用次数
+        // RegCallbackStatus: 0x00000000=STATUS_SUCCESS(注册成功), 其他值=失败码
+        // RegCallbackCount: 回调被调用次数，>0 说明回调在工作
+        {
+            YX_STATS drvStats{};
+            DWORD ret = 0;
+            BOOL qok = DeviceIoControl(m_driverHandle, IOCTL_YX_QUERY_STATS,
+                                       nullptr, 0, &drvStats, sizeof(drvStats), &ret, nullptr);
+            SafeCrashLog(L"[Init] DriverStats query ok=" + std::to_wstring(qok) +
+                         L" RegCallbackStatus=0x" +
+                         std::to_wstring((unsigned)(uint32_t)drvStats.RegCallbackStatus) +
+                         L" RegCallbackCount=" + std::to_wstring(drvStats.RegCallbackCount));
+        }
+
+        SafeCrashLog(L"[Init] SendProtectFlags/SelfProtect/Paths sent");
     }
     SafeCrashLog(L"[Init] Initialize done");
     return true;
@@ -609,14 +633,17 @@ bool ProtectionService::DisableSelfProtection() {
 bool ProtectionService::SendProtectPaths() {
     if (m_driverHandle == INVALID_HANDLE_VALUE) return false;
 
+    SafeCrashLog(L"[Init] SendProtectPaths start");
     YX_PROTECT_PATHS paths{};
     // 隔离区目录（转为设备路径，与内核 FltGetFileNameInformation 返回格式一致）
     if (!m_quarantineDir.empty()) {
         std::wstring devQ = DosPathToDevicePath(m_quarantineDir);
         wcsncpy_s(paths.QuarantineDir, devQ.c_str(), _TRUNCATE);
+        SafeCrashLog(L"[Init] SendProtectPaths quarantine dev=" + devQ);
     }
     // 驱动文件路径
     std::wstring drvPath = LocateDriverFile();
+    SafeCrashLog(L"[Init] SendProtectPaths driver path=" + drvPath);
     if (!drvPath.empty()) {
         std::wstring devDrv = DosPathToDevicePath(drvPath);
         wcsncpy_s(paths.DriverSysPath, devDrv.c_str(), _TRUNCATE);
@@ -627,11 +654,28 @@ bool ProtectionService::SendProtectPaths() {
         GetModuleFileNameW(nullptr, buf, MAX_PATH);
         std::wstring devExe = DosPathToDevicePath(buf);
         wcsncpy_s(paths.ServiceExePath, devExe.c_str(), _TRUNCATE);
+        SafeCrashLog(L"[Init] SendProtectPaths service dev=" + devExe);
+    }
+    // config.ini 配置文件（自我保护：禁止外部进程篡改防护设置）
+    {
+        std::wstring cfgPath = GetInstallDir() + L"\\config.ini";
+        std::wstring devCfg = DosPathToDevicePath(cfgPath);
+        wcsncpy_s(paths.ConfigPath, devCfg.c_str(), _TRUNCATE);
+        SafeCrashLog(L"[Init] SendProtectPaths config dev=" + devCfg);
+    }
+    // 模型目录（exe 同目录 models\，自我保护：禁止外部进程替换/投毒模型权重）
+    {
+        std::wstring modelDir = GetInstallDir() + L"\\models";
+        std::wstring devModel = DosPathToDevicePath(modelDir);
+        wcsncpy_s(paths.ModelDir, devModel.c_str(), _TRUNCATE);
+        SafeCrashLog(L"[Init] SendProtectPaths model dev=" + devModel);
     }
 
     DWORD ret = 0;
     BOOL ok = DeviceIoControl(m_driverHandle, IOCTL_YX_SET_PROTECT_PATHS,
                               &paths, sizeof(paths), nullptr, 0, &ret, nullptr);
+    SafeCrashLog(L"[Init] SendProtectPaths DeviceIoControl ok=" + std::to_wstring(ok) +
+                 L" err=" + std::to_wstring(GetLastError()));
     if (ok) {
         std::lock_guard<std::mutex> lk(m_mutex);
         PushLog(m_callbacks, L"[自我保护] 已向驱动注册受保护路径：隔离区=" + m_quarantineDir);
@@ -1335,6 +1379,9 @@ bool ProtectionService::ExecuteThreatAction(const yx::RuleHit& hit, int action) 
 
     // protectedObject=true 表示客体是受保护的系统资源（hosts/system32/注册表等）
     // 此时只能处置修改者进程(subject)，绝不能删除客体(object)
+    // 注意：操作本身已被内核拦截（STATUS_ACCESS_DENIED），此处仅决定是否杀进程。
+    // 微软签名进程（系统进程）不杀——杀 lsass/csrss/svchost 会导致系统崩溃。
+    // 这里用签名验证而非静态白名单，避免被银狐注入的系统进程被误放行。
     if (hit.protectedObject) {
         std::wstring procPath = hit.subject;
         if (procPath.empty()) {
@@ -1344,17 +1391,31 @@ bool ProtectionService::ExecuteThreatAction(const yx::RuleHit& hit, int action) 
         procPath = DevicePathToDosPath(procPath);
         DWORD pid = FindProcessByPath(procPath);
         if (pid != 0) {
-            SafeCrashLog(L"[Action] Kill process (protected object) pid=" +
-                         std::to_wstring(pid) + L" path=" + procPath);
-            KillProcessByPid(pid);
-            for (int w = 0; w < 15; w++) {
-                HANDLE h = OpenProcess(SYNCHRONIZE, FALSE, pid);
-                if (!h) break;
-                DWORD r = WaitForSingleObject(h, 100);
-                CloseHandle(h);
-                if (r == WAIT_OBJECT_0) break;
+            // 判断修改者进程是否为微软签名（用签名验证，不是静态白名单）
+            bool msSigned = false;
+            try {
+                msSigned = IsMicrosoftSignedCached(procPath);
+            } catch (...) {}
+
+            if (msSigned) {
+                // 微软签名进程：拦截操作已在内核层完成，不杀进程（避免系统崩溃）
+                SafeCrashLog(L"[Action] Blocked write, no kill (MS signed) pid=" +
+                             std::to_wstring(pid) + L" path=" + procPath);
+                Log(L"[处置] 已拦截微软签名进程对受保护资源的修改（不终止进程）: " + procPath);
+            } else {
+                // 非微软签名进程：拦截 + 杀进程
+                SafeCrashLog(L"[Action] Kill process (protected object) pid=" +
+                             std::to_wstring(pid) + L" path=" + procPath);
+                KillProcessByPid(pid);
+                for (int w = 0; w < 15; w++) {
+                    HANDLE h = OpenProcess(SYNCHRONIZE, FALSE, pid);
+                    if (!h) break;
+                    DWORD r = WaitForSingleObject(h, 100);
+                    CloseHandle(h);
+                    if (r == WAIT_OBJECT_0) break;
+                }
+                Log(L"[处置] 已终止修改受保护资源的进程: " + procPath);
             }
-            Log(L"[处置] 已终止修改受保护资源的进程: " + procPath);
         } else {
             Log(L"[处置] 修改者进程已退出，无需处置: " + procPath);
         }
@@ -1518,6 +1579,12 @@ void ProtectionService::OnDriverEvent(const YX_EVENT& ev) {
     e.name0 = ev.Name0;
     e.name1 = ev.Name1;
     e.name2 = ev.Name2;
+    // 用 pid 反查进程映像路径，规则引擎据此判定可疑来源 + 处置时定位创建者
+    if (ev.ProcessId) {
+        try {
+            e.processPath = GetProcessImagePath(ev.ProcessId);
+        } catch (...) {}
+    }
     HandleEvent(e);
 }
 
@@ -1648,16 +1715,51 @@ void ProtectionService::DriverMessageThreadProc() {
 
             // ---- 自我保护事件：驱动已拦截，仅记录日志（不弹 toast，避免刷屏） ----
             if (ev->Type == YX_EVENT_SELF_PROTECT) {
-                std::wstring procName = ev->Name0 ? ev->Name0 : L"(unknown)";
-                std::wstring detail = L"Blocked access to protected file! Process: " + procName +
-                    L" Target: " + (ev->Name1 ? ev->Name1 : L"");
-                SafeCrashLog(L"[SelfProtect] " + detail);
+                // 注意：YX_EVENT.Name0 是被访问的文件路径，不是进程名。
+                // 发起进程的 PID 在 ev->ProcessId，需要一并记录以便排查。
+                std::wstring filePath = ev->Name0 ? ev->Name0 : L"(unknown)";
+                ULONG pid = ev->ProcessId;
+                std::wstring detail = L"Blocked access to protected file! pid=" +
+                    std::to_wstring(pid) + L" file=" + filePath +
+                    L" reason=" + (ev->Name1 ? ev->Name1 : L"");
+
+                // 节流：同一 (pid, file) 组合 5 秒内只记录一次，
+                // 防止 explorer/搜索索引等高频访问把日志窗口和 UI 线程刷爆
+                // （导致主界面无法绘制、窗口卡死）
+                static std::mutex s_spMtx;
+                static std::unordered_map<std::wstring, DWORD> s_lastLog;
+                std::wstring key = std::to_wstring(pid) + L"|" + filePath;
+                DWORD now = GetTickCount();
+                bool shouldLog = false;
                 {
-                    std::lock_guard<std::mutex> lk(m_mutex);
-                    if (m_callbacks.onLog) {
-                        m_callbacks.onLog(L"[SelfProtect] " + detail);
+                    std::lock_guard<std::mutex> lk(s_spMtx);
+                    auto it = s_lastLog.find(key);
+                    if (it == s_lastLog.end() || (now - it->second) > 5000) {
+                        s_lastLog[key] = now;
+                        shouldLog = true;
                     }
                 }
+                if (shouldLog) {
+                    SafeCrashLog(L"[SelfProtect] " + detail);
+                    {
+                        std::lock_guard<std::mutex> lk(m_mutex);
+                        if (m_callbacks.onLog) {
+                            m_callbacks.onLog(L"[SelfProtect] " + detail);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // ---- 注册表诊断事件：仅记录路径和回调类，不走规则引擎，不回复 ----
+            if (ev->Type == YX_EVENT_REG_DIAG) {
+                ULONG pid = ev->ProcessId;
+                std::wstring procPath;
+                try { procPath = GetProcessImagePath(pid); } catch (...) {}
+                SafeCrashLog(L"[RegDiag] pid=" + std::to_wstring(pid) +
+                    L" " + (ev->Name1 ? ev->Name1 : L"") +
+                    L" path=" + (ev->Name0 ? ev->Name0 : L"") +
+                    L" proc=" + procPath);
                 continue;
             }
 
@@ -1688,18 +1790,28 @@ void ProtectionService::DriverMessageThreadProc() {
                             SafeCrashLog(L"[ProcessScan] Allow (Microsoft signed): " + dosPath);
                             decision.Action = YX_ACTION_ALLOW;
                         } else {
-                            // 2. 非微软签名：先做 PE 启发式扫描（与静态扫描同一套引擎）
+                            // 2. 非微软签名：PE 启发式 + ML 融合扫描
+                            //    综合分数 = 启发式*70% + 机器学习*30%（同一套引擎也用于静态扫描）
                             HeuristicResult heur = m_heuristic.ScanFile(dosPath);
-                            if (heur.suspicious) {
-                                SafeCrashLog(L"[ProcessScan] Block (PE heuristic): " + dosPath +
-                                             L" score=" + std::to_wstring(heur.score));
+                            MlResult mlr = m_ml.ScanFile(dosPath);
+                            FusionResult fused = FuseScores(heur.score, mlr);
+
+                            if (fused.suspicious) {
+                                std::wstring scoreDetail =
+                                    fused.mlAvailable
+                                        ? (L" fused=" + std::to_wstring(fused.score) +
+                                           L" heur=" + std::to_wstring(fused.heurScore) +
+                                           L" ml=" + std::to_wstring(fused.mlScore))
+                                        : (L" score=" + std::to_wstring(fused.score));
+                                SafeCrashLog(L"[ProcessScan] Block (heuristic+ML): " + dosPath +
+                                             scoreDetail);
                                 decision.Action = YX_ACTION_BLOCK;
 
                                 yx::RuleHit threatHit;
                                 threatHit.category = RuleCategory::Heuristic;
                                 threatHit.level = ThreatLevel::High;
-                                threatHit.description = L"PE 启发式检测到可疑文件（score=" +
-                                    std::to_wstring(heur.score) + L"）";
+                                threatHit.description = L"启发式+AI检测到可疑文件（综合score=" +
+                                    std::to_wstring(fused.score) + L"）";
                                 threatHit.subject = dosPath;
                                 threatHit.object = dosPath;
 
@@ -1739,8 +1851,8 @@ void ProtectionService::DriverMessageThreadProc() {
                                         } catch (...) {}
                                     }).detach();
                                 } else {
-                                    SafeCrashLog(L"[ProcessScan] Allow (no rule hit, PE score=" +
-                                                 std::to_wstring(heur.score) + L"): " + dosPath);
+                                    SafeCrashLog(L"[ProcessScan] Allow (no rule hit, fused score=" +
+                                                 std::to_wstring(fused.score) + L"): " + dosPath);
                                     decision.Action = YX_ACTION_ALLOW;
                                 }
                             }
@@ -1758,7 +1870,11 @@ void ProtectionService::DriverMessageThreadProc() {
                 // （用户态表现为 HRESULT 0x800700EA = ERROR_MORE_DATA）。
                 FILTER_REPLY_HEADER replyHdr;
                 replyHdr.MessageId = hdr->MessageId;
-                replyHdr.Status = (decision.Action == YX_ACTION_BLOCK) ? STATUS_ACCESS_DENIED : STATUS_SUCCESS;
+                // replyHdr.Status 表示通信状态，不是决策。
+                // 驱动检查 NT_SUCCESS(FltSendMessage 返回值) 来判断是否读取 reply.decision.Action。
+                // 如果设为 STATUS_ACCESS_DENIED，FltSendMessage 返回非成功码，
+                // 驱动会跳过 decision.Action 检查，导致 BLOCK 决策被忽略（操作放行）。
+                replyHdr.Status = STATUS_SUCCESS;
 
 #pragma pack(push, 8)
                 struct ReplyBuf {
@@ -1793,6 +1909,21 @@ void ProtectionService::DriverMessageThreadProc() {
             e.name0 = ev->Name0 ? ev->Name0 : L"";
             e.name1 = ev->Name1 ? ev->Name1 : L"";
             e.name2 = ev->Name2 ? ev->Name2 : L"";
+            // 用 pid 反查进程映像路径，规则引擎据此判定可疑来源 + 处置时定位创建者
+            if (ev->ProcessId) {
+                try {
+                    e.processPath = GetProcessImagePath(ev->ProcessId);
+                } catch (...) {}
+            }
+
+            // 注册表事件（type=20/21）：详细记录路径与匹配结果，便于排查拦截失效
+            bool isRegEvent = (e.type == 20 || e.type == 21);
+            if (isRegEvent) {
+                SafeCrashLog(L"[RegEvt] RECV type=" + std::to_wstring(e.type) +
+                    L" pid=" + std::to_wstring(e.pid) +
+                    L" key=" + e.name0 +
+                    L" proc=" + e.processPath);
+            }
 
             YX_DECISION decision{ 0 };
             decision.EventId = ev->Timestamp;
@@ -1806,6 +1937,12 @@ void ProtectionService::DriverMessageThreadProc() {
                     L" what=" + std::wstring(m.begin(), m.end()));
             } catch (...) {
                 SafeCrashLog(L"[DriverMsg] Rule evaluate unknown exception type=" + std::to_wstring(e.type));
+            }
+
+            if (isRegEvent) {
+                SafeCrashLog(L"[RegEvt] EVAL type=" + std::to_wstring(e.type) +
+                    L" hit=" + std::to_wstring(hit.has_value() ? 1 : 0) +
+                    (hit ? (L" desc=" + hit->description) : L""));
             }
 
             if (hit) {
@@ -1822,28 +1959,44 @@ void ProtectionService::DriverMessageThreadProc() {
                 decision.Action = YX_ACTION_ALLOW;
             }
 
-            // 回复决策（即使是 ALLOW 也要回复，否则内核超时）
-            FILTER_REPLY_HEADER replyHdr;
-            replyHdr.MessageId = hdr->MessageId;
-            replyHdr.Status = (decision.Action == YX_ACTION_BLOCK) ? STATUS_ACCESS_DENIED : STATUS_SUCCESS;
+            // ---- 回复决策（即使是 ALLOW 也要回复，否则内核超时）----
+            // 只对"同步等待回复"的事件回复：
+            //   FILE_CREATE(1)/FILE_WRITE(2)/FILE_DELETE(3)/FILE_RENAME(4) 是驱动
+            //   YxQueryDecision 同步等待回复（500ms 超时）；
+            //   IMAGE_LOAD(12)/注册表(20/21)/线程(50)/驱动加载(60)/MBR(80)/
+            //   自我保护(81)/REG_DIAG(99) 均为驱动 YxReportEvent 异步上报（fire-and-forget，
+            //   无回复缓冲区），回复它们必然失败（0x801F0020），且白白占用消息循环
+            //   处理时间，导致同步文件决策排队超时被默认放行——hosts 被写就是这个原因。
+            bool syncEvent = (ev->Type >= 1 && ev->Type <= 4);
+            if (syncEvent) {
+                FILTER_REPLY_HEADER replyHdr;
+                replyHdr.MessageId = hdr->MessageId;
+                replyHdr.Status = STATUS_SUCCESS;
 
 #pragma pack(push, 8)
-            struct ReplyBuf {
-                FILTER_REPLY_HEADER hdr;
-                YX_DECISION decision;
-            } reply;
+                struct ReplyBuf {
+                    FILTER_REPLY_HEADER hdr;
+                    YX_DECISION decision;
+                } reply;
 #pragma pack(pop)
-            reply.hdr = replyHdr;
-            reply.decision = decision;
+                reply.hdr = replyHdr;
+                reply.decision = decision;
 
-            DWORD replySize = sizeof(FILTER_REPLY_HEADER) + sizeof(YX_DECISION);
-            HRESULT repHr = FilterReplyMessage(m_filterPort,
-                (PFILTER_REPLY_HEADER)&reply, replySize);
-            if (!SUCCEEDED(repHr) && recvCount <= 20) {
-                SafeCrashLog(L"[DriverMsg] FilterReplyMessage failed hr=0x" +
-                    std::to_wstring(static_cast<unsigned long>(repHr)) +
-                    L" replySize=" + std::to_wstring(replySize) +
-                    L" sizeof(reply)=" + std::to_wstring(sizeof(reply)));
+                DWORD replySize = sizeof(FILTER_REPLY_HEADER) + sizeof(YX_DECISION);
+                HRESULT repHr = FilterReplyMessage(m_filterPort,
+                    (PFILTER_REPLY_HEADER)&reply, replySize);
+                if (SUCCEEDED(repHr)) {
+                    if (decision.Action == YX_ACTION_BLOCK && (ev->Type == 20 || ev->Type == 21)) {
+                        SafeCrashLog(L"[Reply] OK type=" + std::to_wstring(ev->Type) +
+                                     L" action=BLOCK msgId=" + std::to_wstring(hdr->MessageId));
+                    }
+                } else {
+                    SafeCrashLog(L"[DriverMsg] FilterReplyMessage FAILED hr=0x" +
+                        std::to_wstring(static_cast<unsigned long>(repHr)) +
+                        L" replySize=" + std::to_wstring(replySize) +
+                        L" sizeof(reply)=" + std::to_wstring(sizeof(reply)) +
+                        L" type=" + std::to_wstring(ev->Type));
+                }
             }
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -1887,6 +2040,34 @@ void ProtectionService::MonitorThreadProc() {
                     SafeCrashLog(L"[Monitor] PollScheduledTasks exception: " + std::wstring(m.begin(), m.end()));
                 } catch (...) {
                     SafeCrashLog(L"[Monitor] PollScheduledTasks unknown exception");
+                }
+            }
+            // 每 10 秒查询一次驱动注册表回调调用次数，诊断回调是否在工作
+            if (tick % 10 == 0 && m_driverHandle != INVALID_HANDLE_VALUE) {
+                YX_STATS ds{};
+                DWORD r = 0;
+                if (DeviceIoControl(m_driverHandle, IOCTL_YX_QUERY_STATS, nullptr, 0,
+                                    &ds, sizeof(ds), &r, nullptr)) {
+                    // 输出各类回调计数（只输出非零的类）
+                    std::wstring clsInfo;
+                    for (int i = 0; i < 32; i++) {
+                        if (ds.RegClassCounts[i] > 0) {
+                            if (!clsInfo.empty()) clsInfo += L" ";
+                            clsInfo += L"c" + std::to_wstring(i) + L"=" + std::to_wstring(ds.RegClassCounts[i]);
+                        }
+                    }
+                    SafeCrashLog(L"[Monitor] DrvStats RegCount=" + std::to_wstring(ds.RegCallbackCount) +
+                                 L" (status=0x" + std::to_wstring((unsigned)(uint32_t)ds.RegCallbackStatus) + L")" +
+                                 L" PathFail=" + std::to_wstring(ds.RegPathFailCount) +
+                                 L" PathMiss=" + std::to_wstring(ds.RegPathMissCount) +
+                                 L" PathHit=" + std::to_wstring(ds.RegPathHitCount) +
+                                 L" QD:allow=" + std::to_wstring(ds.QDAllowCount) +
+                                 L" block=" + std::to_wstring(ds.QDBlockCount) +
+                                 L" timeout=" + std::to_wstring(ds.QDTimeoutCount) +
+                                 L" bad=" + std::to_wstring(ds.QDBadReplyCount));
+                    if (!clsInfo.empty()) {
+                        SafeCrashLog(L"[Monitor] RegClassCounts: " + clsInfo);
+                    }
                 }
             }
         } catch (const std::exception& ex) {
@@ -2115,6 +2296,8 @@ static bool IsMicrosoftSigned(const std::wstring& filePath) {
 
 // 带缓存的微软签名验证：同一文件只调用一次 WinVerifyTrust，结果缓存到 m_signCache
 // 注意：缓存 key 使用小写 DOS 路径，路径需先通过 DevicePathToDosPath 转换
+// 重要：验签在后台线程执行，最多等 3 秒。超时则返回 false（走启发式扫描），
+//       避免阻塞 DriverMsg 线程——否则注册表决策会因 FltSendMessage 超时而默认放行。
 bool ProtectionService::IsMicrosoftSignedCached(const std::wstring& dosPath) {
     if (dosPath.empty()) return false;
 
@@ -2130,14 +2313,37 @@ bool ProtectionService::IsMicrosoftSignedCached(const std::wstring& dosPath) {
         }
     }
 
-    // 缓存未命中，执行实际验签
-    bool result = IsMicrosoftSigned(dosPath);
+    // 缓存未命中：在后台线程执行验签，主线程最多等 3 秒
+    auto resultPtr = std::make_shared<std::atomic<bool>>(false);
+    auto donePtr = std::make_shared<std::atomic<bool>>(false);
 
-    {
-        std::lock_guard<std::mutex> lk(m_signCacheMutex);
-        m_signCache[key] = result;
+    std::thread([this, dosPath, key, resultPtr, donePtr]() {
+        bool r = false;
+        try {
+            r = IsMicrosoftSigned(dosPath);
+        } catch (...) {
+            r = false;
+        }
+        resultPtr->store(r);
+        {
+            std::lock_guard<std::mutex> lk(m_signCacheMutex);
+            m_signCache[key] = r;  // 后台完成后写入缓存，下次直接命中
+        }
+        donePtr->store(true);
+    }).detach();
+
+    // 主线程最多等 3 秒（轮询 10ms 一次）
+    for (int i = 0; i < 300 && !donePtr->load(); i++) {
+        Sleep(10);
     }
 
+    if (!donePtr->load()) {
+        // 超时：返回未签名，走启发式扫描；后台线程完成后会自动写入缓存
+        SafeCrashLog(L"[SignCheck] TIMEOUT(3s) path=" + dosPath);
+        return false;
+    }
+
+    bool result = resultPtr->load();
     SafeCrashLog(L"[SignCheck] path=" + dosPath +
                  L" result=" + (result ? L"Microsoft signed" : L"not Microsoft signed"));
     return result;

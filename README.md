@@ -13,6 +13,7 @@ BanJiu-Guard/
 │   │   ├── yx_yinhu_db.h        #   银狐木马特征库/IOC/规则分类
 │   │   ├── yx_rules.h/.cpp      #   行为规则引擎（注册表持久化/注入/任务计划/C2/BYOVD）
 │   │   ├── yx_heuristic.h/.cpp  #   PE 启发式扫描引擎（节区熵/可疑导入/加壳/签名缺失）
+│   │   ├── yx_ml_engine.h/.cpp  #   机器学习引擎（LightGBM 22维PE特征推理 + 分数融合）
 │   │   └── CMakeLists.txt
 │   ├── driver/                  # 内核驱动（WDK Minifilter）
 │   │   ├── yx_driver.cpp        #   DriverEntry + Minifilter 注册 + 通信端口
@@ -33,6 +34,10 @@ BanJiu-Guard/
 │       └── CMakeLists.txt
 ├── tools/
 │   └── sign_driver.bat          # 驱动测试签名脚本
+├── third_party/
+│   └── build_lightgbm.bat       # LightGBM 4.6.0 静态库一键构建（自动 clone + /MT 编译）
+├── models/
+│   └── lgbm_detector.txt        # LightGBM 预训练模型权重（22维PE特征，二分类）
 └── signatures/                  # 特征库签名（预留）
 ```
 
@@ -42,7 +47,7 @@ BanJiu-Guard/
 
 #### 进程启动拦截（同步决策）
 - 内核 `PsSetCreateProcessNotifyRoutineEx` 回调，在进程创建前同步询问用户态
-- 用户态对非微软签名进程执行 PE 启发式扫描（与静态扫描同一引擎）
+- 用户态对非微软签名进程执行双引擎检测：启发式 70% + LightGBM ML 30%（与静态扫描同一套引擎）
 - 微软签名验证：`WinVerifyTrust` + `CryptCATAdmin` 目录签名（缓存加速）
 - 判定为恶意时返回 `STATUS_ACCESS_DENIED`，进程根本无法创建
 - 覆盖所有启动方式：Explorer 双击、Win+R 运行、浏览器下载直接运行、命令行、计划任务、服务、WMI 等
@@ -73,9 +78,10 @@ BanJiu-Guard/
 - 文件不存在时自动跳过文件操作，仅清理持久化项
 
 ### 病毒扫描
-- **PE 启发式扫描引擎**：分析节区熵值、可疑导入函数（VirtualAllocEx/WriteProcessMemory/CreateRemoteThread 等）、PE 结构异常、加壳检测、签名缺失
+- **双引擎融合打分**：PE 启发式 70% + LightGBM 机器学习 30%，静态扫描与运行前扫描使用同一套引擎
+- **PE 启发式扫描**：节区熵值、可疑导入函数（VirtualAllocEx/WriteProcessMemory/CreateRemoteThread 等）、PE 结构异常、加壳检测、签名缺失
+- **LightGBM ML 推理**：22 维 PE 特征（文件大小/导入导出/资源/签名/整体与节区熵/可写可执行节/RICH条目/overlay 等），输出恶意概率，模型缺失时自动回退为纯启发式
 - 快速扫描 / 全盘扫描 / 自定义扫描
-- 静态扫描与运行时扫描使用同一套启发式引擎，判定结果一致
 
 ### GUI
 - 仪表盘（防护状态 + 实时统计）
@@ -99,7 +105,16 @@ BanJiu-Guard/
 - MSVC（VS 2019+，实测 VS 2026 / MSVC 14.51）
 - 静态 Qt 6.11.0（`D:\program\qt-static-msvc`，`-static-runtime`）
 - WDK（`D:\program\Windows Kits\10`，含 km 头文件 + ntoskrnl.lib + fltMgr.lib）
-- Ninja + CMake
+- Ninja + CMake + Git（用于拉取 LightGBM 源码）
+
+### 一键构建
+
+```
+build_all.bat
+```
+
+依次执行：驱动 → LightGBM 静态库 → 用户态 GUI/服务 → 驱动签名。
+或按以下步骤手动构建：
 
 ### 1. 编译内核驱动
 
@@ -112,7 +127,17 @@ build_driver.bat
 
 链接选项含 `/INTEGRITYCHECK`，确保 `PsSetCreateProcessNotifyRoutineEx` 注册成功。
 
-### 2. 编译用户态（服务 + GUI，静态 MSVC）
+### 2. 编译 LightGBM 静态库
+
+```
+cd third_party
+build_lightgbm.bat
+```
+
+自动 clone LightGBM v4.6.0 + 子模块，以 `/MT`（静态 CRT）编译输出 `third_party/LightGBM/lib_lightgbm.lib`。
+首次构建需要联网；已构建时 `build_all.bat` 会自动跳过。
+
+### 3. 编译用户态（服务 + GUI，静态 MSVC）
 
 ```
 cmake -S . -B build -GNinja ^
@@ -121,9 +146,10 @@ cmake -S . -B build -GNinja ^
 cmake --build build --parallel
 ```
 
-输出 `build/src/gui/BanJiu-Guard.exe`（静态链接，含服务）。
+输出 `build/src/gui/BanJiu-Guard.exe`（静态链接 LightGBM，含服务）。
+模型权重 `models/lgbm_detector.txt` 会自动拷贝到 `build/src/gui/models/`。
 
-### 3. 驱动签名（测试）
+### 4. 驱动签名（测试）
 
 ```
 tools\sign_driver.bat
@@ -131,11 +157,13 @@ tools\sign_driver.bat
 
 首次需生成测试证书，之后 `build_driver.bat` 会自动签名。
 
-### 4. 运行
+### 5. 运行
 
 1. 开启测试签名模式（首次运行 GUI 里有引导，或手动）：`bcdedit /set testsigning on` 后重启
 2. 以管理员权限运行 `BanJiu-Guard.exe`
 3. 按首次运行引导开启完全防护
+
+> 模型文件缺失时软件正常运行，检测自动回退为纯启发式打分（启动日志可见 `ML model loaded=false`）。
 
 ## 内核-用户态通信架构
 
@@ -146,7 +174,7 @@ tools\sign_driver.bat
     │  ──────────────────────────────►    │  FilterGetMessage（轮询）
     │         YX_EVENT (type=10)          │
     │                                     │  ├─ 微软签名验证 → 放行
-    │                                     │  ├─ PE 启发式扫描 → score≥30 阻止
+    │                                     │  ├─ 启发式70%+LightGBM ML30% → 综合分≥30 阻止
     │                                     │  └─ 规则引擎 → 命中阻止
     │    FltSendMessage（同步等待）        │
     │  ◄──────────────────────────────    │  FilterReplyMessage
